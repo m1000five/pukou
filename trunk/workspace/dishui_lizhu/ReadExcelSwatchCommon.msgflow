@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFileInput.msgnode="ComIbmFileInput.msgnode" xmlns:ComIbmIsswExcelParserNode.msgnode="ComIbmIsswExcelParserNode.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="ReadExcelSwatchCommon.msgflow"
+    nsPrefix="ReadExcelSwatchCommon.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="ReadExcelSwatchCommon" bundleName="ReadExcelSwatchCommon" pluginId="dishui"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/dishui/icons/full/obj16/ReadExcelSwatchCommon.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/dishui/icons/full/obj30/ReadExcelSwatchCommon.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="413,27" dataSource="TESTDB" computeExpression="esql://routine/#ReadExcelSwatchCommon_ComputeLine.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="ComputeLine"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="227,149" dataSource="TESTDB" computeExpression="esql://routine/#ReadExcelSwatchCommon_ComputeEOF.Main">
+        <translation xmi:type="utility:ConstantString" string="ComputeEOF"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFileInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="60,106" inputDirectory="e:\tmp\jscredit\" filenamePattern="*.xls" processedFileAction="moveToArchive" replaceDuplicateArchives="true" messageDomainProperty="BLOB">
+        <translation xmi:type="utility:ConstantString" string="FileInput"/>
+      </nodes>
+      <nodes xmi:type="ComIbmIsswExcelParserNode.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="176,32" ccsid="1386">
+        <translation xmi:type="utility:ConstantString" string="ComIbmIsswExcelParserNode"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.EOD" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+  </eClassifiers>
+</ecore:EPackage>

@@ -1,0 +1,45 @@
+
+
+CREATE COMPUTE MODULE dataSynchronize_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		--先读出数据 
+		DECLARE strSql CHARACTER;
+		DECLARE data_row ROW;
+	--	DECLARE count INTEGER;
+		SET strSql = 'SELECT * FROM  t_admin_rule';
+		SET data_row.row[] = PASSTHRU (strSql TO Database.orcl_140);
+	--	SET count = CARDINALITY(data_row.row[]);
+	--将数据插入到新的数据库表中
+		DECLARE deleteSql CHARACTER;
+		SET deleteSql= 'DELETE FROM t_admin_rule';
+		PASSTHRU deleteSql TO Database.orcl;
+		DECLARE newSql CHARACTER;
+		
+		FOR source AS data_row.row[] DO
+			SET newSql = 'INSERT INTO t_admin_rule(ruleid,rulename,ruledesc,ruletype,errorinfo,createtime,isuse,program,usetime,version) values(?,?,?,?,?,?,?,?,?,?)';
+			PASSTHRU newSql TO Database.orcl values(source.RULEID,source.RULENAME,source.RULEDESC,source.RULETYPE,source.ERRORINFO,source.CREATETIME,source.ISUSE,source.PROGRAM,source.USETIME,source.VERSION);
+		END FOR;
+--		SET strSql='INSERT INTO Database.orcl.t_admin_rule	SELECT * FROM Database.orcl_140.t_admin_rule';
+--		PASSTHRU strSql TO Database.orcl;
+--		RETURN FALSE;
+--	INSERT INTO Database.orcl.t_admin_rule	SELECT * FROM Database.orcl_140.t_admin_rule;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

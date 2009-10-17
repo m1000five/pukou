@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmDatabaseRetrieve.msgnode="ComIbmDatabaseRetrieve.msgnode" xmlns:ComIbmDatabaseRoute.msgnode="ComIbmDatabaseRoute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmRoute.msgnode="ComIbmRoute.msgnode" xmlns:ComIbmTrace.msgnode="ComIbmTrace.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="SimplifiedDBRouting.msgflow"
+    nsPrefix="SimplifiedDBRouting.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="SimplifiedDBRouting" bundleName="SimplifiedDBRouting" pluginId="Simplified Database Routing Message Flows"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Simplified Database Routing Message Flows/icons/full/obj16/SimplifiedDBRouting.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/Simplified Database Routing Message Flows/icons/full/obj30/SimplifiedDBRouting.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="30,27" queueName="SIMPLERROUTEDB_IN" messageDomainProperty="XMLNSC">
+        <translation xmi:type="utility:ConstantString" string="MQInput"/>
+      </nodes>
+      <nodes xmi:type="ComIbmRoute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="90,206" distributionMode="first">
+        <outTerminals terminalNodeID="Match" dynamic="true" label="Match"/>
+        <translation xmi:type="utility:ConstantString" string="Route"/>
+        <filterTable filterPattern="$Body/EmpRecord/WorkDept" routingOutputTerminal="Match"/>
+      </nodes>
+      <nodes xmi:type="ComIbmDatabaseRetrieve.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="202,238" dataSourceName="SIMPLERROUTEDB" copyMessage="true" sqlQuery="SELECT  E.LASTNM,  E.FIRSTNM,  E.YEARSSERVICE,  E.AGEINYRS,  E.WORKDEPT&#xA;FROM EMPLOYEE E&#xA;WHERE  E.EMPNUM = ?&#xA;ORDER BY  E.LASTNM ASC,  E.FIRSTNM ASC,  E.YEARSSERVICE ASC,  E.AGEINYRS ASC,  E.WORKDEPT ASC" tableNameComboValues="0,0,0,0,0,0~EMPLOYEE E" columnNameComboValues="5,3,7,0,6,2~AGEINYRS,BIRTHDATE,EMPNUM,FIRSTNM,HIREDATE,LASTNM,WORKDEPT,YEARSSERVICE"
+          operatorComboValues="0,0,0,0,0,2~ASC" valueTypeComboValues="0,0,0,0,0,2~None" valueComboValues="0,0,0,0,0,0~None,None,None,None,None,$InputBody/EmpRecord/EmpNumber" columnValueComboValues="1,3,4,0,3~ E.WORKDEPT">
+        <translation xmi:type="utility:ConstantString" string="DatabaseRetrieve"/>
+        <queryElements tableName="EMPLOYEE E" columnName="LASTNM" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="EMPLOYEE E" columnName="FIRSTNM" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="EMPLOYEE E" columnName="YEARSSERVICE" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="EMPLOYEE E" columnName="AGEINYRS" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="EMPLOYEE E" columnName="WORKDEPT" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="EMPLOYEE E" columnName="EMPNUM" operator="=" valueType="Element" value="$InputBody/EmpRecord/EmpNumber"/>
+        <dataElements columnName=" E.FIRSTNM" messageElement="$OutputRoot/XMLNSC/EmpRecord/FirstName"/>
+        <dataElements columnName=" E.LASTNM" messageElement="$OutputRoot/XMLNSC/EmpRecord/LastName"/>
+        <dataElements columnName=" E.YEARSSERVICE" messageElement="$OutputRoot/XMLNSC/EmpRecord/YrsInService"/>
+        <dataElements columnName=" E.AGEINYRS" messageElement="$OutputRoot/XMLNSC/EmpRecord/AgeInYears"/>
+        <dataElements columnName=" E.WORKDEPT" messageElement="$OutputRoot/XMLNSC/EmpRecord/WorkDept"/>
+      </nodes>
+      <nodes xmi:type="ComIbmDatabaseRoute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="273,480" dataSourceName="SIMPLERROUTEDB" sqlQuery="SELECT  M.EMPNUM,  M.LASTNM,  M.AGEINYRS&#xA;FROM EMPLOYEE M, DEPARTMENT D&#xA;WHERE  D.DEPTNUM = ?&#xA;AND  D.MGRNUM =  M.EMPNUM&#xA;ORDER BY  M.EMPNUM ASC,  M.LASTNM ASC,  M.AGEINYRS ASC" tableNameComboValues="1,1,1,0,0~DEPARTMENT D,EMPLOYEE M" columnNameComboValues="3,4,0,2,5~AGEINYRS,BIRTHDATE,DEPTNUM,EMPNUM,LASTNM,MGRNUM" operatorComboValues="0,0,0,2,2~ASC"
+          valueTypeComboValues="0,0,0,2,1~None" valueComboValues="0,0,0,0,4~None,None,None,$Body/EmpRecord/WorkDept,(EMPLOYEE) M.EMPNUM">
+        <outTerminals terminalNodeID="OlderThanMe" dynamic="true" label="OlderThanMe"/>
+        <outTerminals terminalNodeID="TenYearsService" dynamic="true" label="TenYearsService"/>
+        <translation xmi:type="utility:ConstantString" string="DatabaseRoute"/>
+        <queryElements tableName="EMPLOYEE M" columnName="EMPNUM" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="EMPLOYEE M" columnName="LASTNM" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="EMPLOYEE M" columnName="AGEINYRS" operator="ASC" valueType="None" value="None"/>
+        <queryElements tableName="DEPARTMENT D" columnName="DEPTNUM" operator="=" valueType="Element" value="$Body/EmpRecord/WorkDept"/>
+        <queryElements tableName="DEPARTMENT D" columnName="MGRNUM" operator="=" valueType="Column" value="(EMPLOYEE) M.EMPNUM"/>
+        <filterTable filterPattern="($Body/EmpRecord/AgeInYears > $M_AGEINYRS) and ($M_LASTNM = 'KWAN')" routingOutputTerminal="OlderThanMe"/>
+        <filterTable filterPattern="$Body/EmpRecord/YrsInService >= 10" routingOutputTerminal="TenYearsService"/>
+      </nodes>
+      <nodes xmi:type="ComIbmTrace.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="345,35" destination="localError" pattern="&#xD;&#xA;Root >&#xD;&#xA;${Root}&#xD;&#xA;&#xD;&#xA;ExceptionList >&#xD;&#xA;${ExceptionList}">
+        <translation xmi:type="utility:ConstantString" string="Trace"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="442,35" queueName="SIMPLERROUTEDB_FAILURE">
+        <translation xmi:type="utility:ConstantString" string="FailureQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="586,179" queueName="SIMPLERROUTEDB_SNRSTAFF">
+        <translation xmi:type="utility:ConstantString" string="SeniorStaffQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="498,101" queueName="SIMPLERROUTEDB_KEYNOTFOUND">
+        <translation xmi:type="utility:ConstantString" string="KeyNotFoundQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="665,261" queueName="SIMPLERROUTEDB_ORDERCLOCK">
+        <translation xmi:type="utility:ConstantString" string="OrderClockQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="753,345" queueName="SIMPLERROUTEDB_DEFAULT">
+        <translation xmi:type="utility:ConstantString" string="DefaultQ"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.default" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_2" sourceTerminalName="Match" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_4" sourceTerminalName="OlderThanMe" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.keyNotFound" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_14" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.keyNotFound" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_15" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_4" sourceTerminalName="TenYearsService" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.default" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+  </eClassifiers>
+</ecore:EPackage>

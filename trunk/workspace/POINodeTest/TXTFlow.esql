@@ -1,0 +1,389 @@
+Declare TotalRecord SHARED INTEGER 0;
+Declare FailedRecord SHARED INTEGER 0;
+Declare IsFirstData SHARED BOOLEAN TRUE;
+
+CREATE COMPUTE MODULE TXTFlow_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		SET TotalRecord = TotalRecord + 1;
+		
+		-- IS HEAD RECORD
+		IF IsFirstData AND TotalRecord = 1 THEN
+			SET IsFirstData = False;
+			SET TotalRecord = 0;
+			RETURN FALSE;
+		END IF;
+		
+		-- Write Start Log
+		IF TotalRecord = 1 THEN
+			SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+			SET OutputLocalEnvironment.Variables.TYPE = '信息';
+			SET OutputLocalEnvironment.Variables.PROCESS = '流程3';
+			SET OutputLocalEnvironment.Variables.FILE = InputLocalEnvironment.File.Name;
+			SET OutputLocalEnvironment.Variables.AUDIT = '';
+			SET OutputLocalEnvironment.Variables.NOTES = '文件读取开始';
+			PROPAGATE;
+		END IF;
+		
+		-- GET RECORD
+		DECLARE ZZJGDM CHARACTER;
+		DECLARE QYMC CHARACTER;
+		DECLARE KSRQ CHARACTER;
+		DECLARE JZRQ CHARACTER;
+		DECLARE ZCZJ CHARACTER;
+		DECLARE FDDBR CHARACTER;
+		DECLARE ZJLX CHARACTER;
+		
+		-- SET RECORD
+		SET ZZJGDM = TRIM('"' FROM InputRoot.MRM.Record.ZZJGDM);
+		SET QYMC = TRIM('"' FROM InputRoot.MRM.Record.QYMC);
+		SET KSRQ = TRIM('"' FROM InputRoot.MRM.Record.KSRQ);
+		SET JZRQ = TRIM('"' FROM InputRoot.MRM.Record.JZRQ);
+		SET ZCZJ = TRIM('"' FROM InputRoot.MRM.Record.ZCZJ);
+		SET FDDBR = TRIM('"' FROM InputRoot.MRM.Record.FDDBR);
+		SET ZJLX = TRIM('"' FROM InputRoot.MRM.Record.ZJLX);
+
+		IF LENGTH(CAST(ZZJGDM AS BLOB CCSID 1208)) > 9 THEN
+			SET FailedRecord = FailedRecord + 1;
+			-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = ZZJGDM;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'组织机构代码错误',Note);
+
+	    	RETURN FALSE;
+		END IF;
+		
+		
+		-- 组织机构代码验证
+		DECLARE isValid Boolean FALSE;
+		DECLARE front CHARACTER;
+		DECLARE checkBit CHARACTER;
+		IF LENGTH(ZZJGDM) = 9 THEN
+			SET front = SUBSTRING(ZZJGDM FROM 1 FOR 8);
+			SET checkBit = SUBSTRING(ZZJGDM FROM 9 FOR 1);
+			CALL checkOrgCode(front, checkBit, isValid);
+		END IF;
+		
+		IF isValid = FALSE THEN
+			SET FailedRecord = FailedRecord + 1;
+			-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = ZZJGDM||','||QYMC||','||KSRQ||','||JZRQ||','||ZCZJ||','||FDDBR||','||ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'组织机构代码错误',Note);
+
+	    	RETURN FALSE;
+		END IF;
+		
+		-- 日期验证
+        DECLARE KSRQDate DATE CURRENT_DATE;
+        DECLARE JZRQDate DATE CURRENT_DATE;
+        DECLARE KSRQCheck DATE;
+        DECLARE JZRQCheck DATE;
+        DECLARE pattern CHARACTER 'yyyy-MM-dd';
+        DECLARE isDate BOOLEAN true;
+        -- 设立日期
+	    CALL ChangeDate(KSRQ,isDate,KSRQDate);
+
+        -- 年审日期
+        CALL ChangeDate(JZRQ,isDate,JZRQDate);
+	    
+	    IF isDate = false THEN
+			SET FailedRecord = FailedRecord + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = ZZJGDM||','||QYMC||','||KSRQ||','||JZRQ||','||ZCZJ||','||FDDBR||','||ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'日期错误',Note);
+
+	    	RETURN FALSE;
+		END IF;
+		
+	    SET KSRQCheck = CAST('1949-10-01' AS DATE FORMAT pattern);
+	    SET JZRQCheck = CAST('2009-01-01' AS DATE FORMAT pattern);
+	    
+	    IF (KSRQDate <= KSRQCheck) OR (JZRQDate >= JZRQCheck) OR KSRQDate > JZRQDate THEN
+	    	SET FailedRecord = FailedRecord + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = ZZJGDM||','||QYMC||','||KSRQ||','||JZRQ||','||ZCZJ||','||FDDBR||','||ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'日期错误',Note);
+
+	    	RETURN FALSE;
+	    END IF;
+	    
+	    -- 转化为元
+	    DECLARE money DECIMAL;
+        SET money = CAST(ZCZJ AS DECIMAL);
+	    SET money = money*10000;
+	    
+	    -- 剔除*，？
+	    IF CONTAINS(QYMC, '*') OR CONTAINS(QYMC, '?') THEN
+	    	
+	    	SET FAILE = FAILE + 1;
+	    	
+	    	-- INSERT Err Data
+	    	SET FailedRecord = FailedRecord + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = ZZJGDM||','||QYMC||','||KSRQ||','||JZRQ||','||ZCZJ||','||FDDBR||','||ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'包含特殊字符',Note);
+
+	    	RETURN FALSE;
+	    END IF;
+		
+		-- 法人代表
+	    IF LENGTH(CAST(FDDBR AS BLOB CCSID 1208)) > 20 THEN
+	    	SET FAILE = FAILE + 1;
+	    	
+	    	-- INSERT Err Data
+	    	SET FailedRecord = FailedRecord + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = ZZJGDM||','||QYMC||','||KSRQ||','||JZRQ||','||ZCZJ||','||FDDBR||','||ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'字段超长',Note);
+
+	    	RETURN FALSE;
+	    END IF;
+	    
+		-- 去空格
+	    SET QYMC = TRIM(QYMC);
+	    
+	    --INSERT DATA
+	    DECLARE OldType ChARACTER;
+	    DECLARE NewType ChARACTER;
+	    SET OldType = ZJLX;
+	    SET OutputRoot.XMLNSC.NewType[] = (SELECT T.New_Type FROM Database.AT1_DICT AS T WHERE T.Old_Type = OldType);
+	    SET NewType = OutputRoot.XMLNSC.NewType[1].New_Type;
+	    INSERT INTO Database.AT1 (InFileName,InFileNo,zzjgdm,UnitName,StartTime,EndTime,Cash,PeopleName,CerType,OutXMLFileName) 
+	         VALUES (InputLocalEnvironment.File.Name,TotalRecord,ZZJGDM,
+	              QYMC,KSRQDate,JZRQDate,money,FDDBR, NewType,'a2c.xml');
+		
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+	CREATE PROCEDURE checkOrgCode (
+  		IN orgCode CHARACTER,
+  		IN verifyCode Char,
+		OUT isValid  Boolean)
+BEGIN
+    	SET Environment.WeightFactors[1] = 3;
+    	SET Environment.WeightFactors[2] = 7;
+    	SET Environment.WeightFactors[3] = 9;
+    	SET Environment.WeightFactors[4] = 10;
+    	SET Environment.WeightFactors[5] = 5;
+    	SET Environment.WeightFactors[6] = 8;
+    	SET Environment.WeightFactors[7] = 4;
+    	SET Environment.WeightFactors[8] = 2;
+
+    	DECLARE I INTEGER 1;
+		DECLARE J INTEGER 8;
+		
+		DECLARE sum INTEGER 0;
+		DECLARE weight INTEGER;
+		DECLARE codeNum INTEGER;
+		
+		WHILE I <= J DO
+			
+			CALL getNumber(SUBSTRING(orgCode FROM I FOR 1), codeNum);
+			SET weight = Environment.WeightFactors[I];
+			SET sum = sum + (codeNum * weight);
+			
+			SET I = I + 1;
+
+		END WHILE;
+		
+		DECLARE modnum INTEGER;
+		SET modnum = 11 - MOD(sum, 11);
+		
+		IF modnum = 10 AND verifyCode = 'X' THEN
+			SET isValid = true;
+		ELSEIF modnum = 11 AND verifyCode = '0' THEN
+			SET isValid = true;
+		ELSEIF verifyCode = CAST(modnum AS CHAR) THEN
+			SET isValid = true;
+		ELSE 
+			SET isValid = false;
+		END IF;		
+		
+END;
+	
+CREATE PROCEDURE getNumber(IN chaa CHAR, OUT num INTEGER)
+BEGIN
+	SET num = 
+   			CASE chaa
+	      		WHEN '0' THEN 0 
+	   			WHEN '1' THEN 1
+				WHEN '2' THEN 2
+				WHEN '3' THEN 3
+				WHEN '4' THEN 4
+				WHEN '5' THEN 5
+				WHEN '6' THEN 6
+				WHEN '7' THEN 7
+				WHEN '8' THEN 8
+				WHEN '9' THEN 9
+				WHEN 'A' THEN 10
+				WHEN 'B' THEN 11
+				WHEN 'C' THEN 12				
+				WHEN 'D' THEN 13
+				WHEN 'E' THEN 14
+				WHEN 'F' THEN 15
+				WHEN 'G' THEN 16
+				WHEN 'H' THEN 17
+				WHEN 'I' THEN 18
+				WHEN 'J' THEN 19				
+				WHEN 'K' THEN 20
+				WHEN 'L' THEN 21
+				WHEN 'M' THEN 22
+				WHEN 'N' THEN 23
+				WHEN 'O' THEN 24
+				WHEN 'P' THEN 25
+				WHEN 'Q' THEN 26
+				WHEN 'R' THEN 27				
+				WHEN 'S' THEN 28
+				WHEN 'T' THEN 29
+				WHEN 'U' THEN 30
+				WHEN 'V' THEN 31
+				WHEN 'W' THEN 32
+				WHEN 'X' THEN 33
+				WHEN 'Y' THEN 34				
+				WHEN 'Z' THEN 35
+			ELSE 0
+   			END;
+END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE TXTFlow_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		-- Write End Log
+		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+		SET OutputLocalEnvironment.Variables.TYPE = '信息';
+		SET OutputLocalEnvironment.Variables.PROCESS = '流程3';
+		SET OutputLocalEnvironment.Variables.FILE = InputLocalEnvironment.File.Name;
+		SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TotalRecord AS CHARACTER)||
+													' 正确：'||CAST(TotalRecord - FailedRecord AS CHARACTER)||
+													' 错误：'||CAST(FailedRecord AS CHARACTER);
+		SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+		PROPAGATE;
+		
+		-- PUT Message to QUEUE
+		CALL CopyEntireMessage();
+		SET OutputRoot.XMLNSC.RESULT.STATUS = 'OK';
+		PROPAGATE TO TERMINAL 'out1';
+		
+		SET TotalRecord = 0;
+		SET FailedRecord = 0;
+		SET IsFirstData = TRUE;
+		
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+END MODULE;
+
+CREATE PROCEDURE ChangeDate(IN SourceDate CHARACTER,OUT isDate BOOLEAN, OUT returnDate DATE)
+BEGIN
+	
+	DECLARE YearStr CHARACTER;
+    DECLARE MonthStr CHARACTER;
+    DECLARE DayStr CHARACTER;
+    DECLARE pattern CHARACTER 'yyyy-MM-dd';
+    
+    SET isDate = true;
+    SET returnDate = CURRENT_DATE;
+    
+    IF CONTAINS(SourceDate, '-') =FALSE AND  CONTAINS(SourceDate, '/') =FALSE AND  CONTAINS(SourceDate, '年') =FALSE THEN
+    	SET isDate = FALSE;
+    	RETURN;
+    END IF;
+    
+	-- Contain '-'
+	IF CONTAINS(SourceDate, '-') THEN
+		SET YearStr = SUBSTRING(SourceDate BEFORE '-');
+        SET MonthStr = SUBSTRING(SUBSTRING(SourceDate AFTER '-') BEFORE '-');
+        SET DayStr = SUBSTRING(SUBSTRING(SourceDate AFTER '-') AFTER '-');
+	END IF;
+	
+	-- Contain '/'
+	IF CONTAINS(SourceDate, '/') THEN
+		SET YearStr = SUBSTRING(SourceDate BEFORE '/');
+        SET MonthStr = SUBSTRING(SUBSTRING(SourceDate AFTER '/') BEFORE '/');
+        SET DayStr = SUBSTRING(SUBSTRING(SourceDate AFTER '/') AFTER '/');
+	END IF;
+	
+	-- Contain '年'
+	IF CONTAINS(SourceDate, '年') THEN
+		SET YearStr = SUBSTRING(SourceDate BEFORE '年');
+        SET MonthStr = SUBSTRING(SUBSTRING(SourceDate AFTER '年') BEFORE '月');
+        SET DayStr = SUBSTRING(SUBSTRING(SourceDate BEFORE '日') AFTER '月');
+	END IF;
+	
+	IF LENGTH(YearStr)<>4 THEN
+        SET isDate = false;
+        RETURN;
+    END IF;
+        	
+    IF LENGTH(MonthStr)<> 1 and LENGTH(MonthStr)<>2 THEN
+       	SET isDate = false;
+       	RETURN;
+    END IF;
+        	
+    IF LENGTH(DayStr)<> 1 and LENGTH(DayStr)<>2 THEN
+        SET isDate = false;
+        RETURN;
+    END IF;
+    
+    IF LENGTH(MonthStr) = 1 THEN
+       	SET MonthStr = '0'||MonthStr;
+    END IF;
+    
+    IF LENGTH(DayStr) = 1 THEN
+       	SET DayStr = '0'||DayStr;
+    END IF;
+        
+    SET SourceDate = YearStr||'-'||MonthStr||'-'||DayStr;
+    SET returnDate = CAST(SourceDate AS DATE FORMAT pattern);
+    RETURN;
+	
+END;
+

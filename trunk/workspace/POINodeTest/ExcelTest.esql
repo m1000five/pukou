@@ -1,0 +1,386 @@
+DECLARE TOTAL SHARED INTEGER 0;
+DECLARE FAILE SHARED INTEGER 0;
+
+CREATE COMPUTE MODULE ExcelTest_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	    -- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+	    IF InputRoot.XMLNSC.Records.ID = 1 THEN
+	    	SET FAILE = 0;
+			SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+			SET OutputLocalEnvironment.Variables.TYPE = '信息';
+			SET OutputLocalEnvironment.Variables.PROCESS = '流程2';
+			SET OutputLocalEnvironment.Variables.FILE = InputRoot.XMLNSC.Records.FileName;
+			SET OutputLocalEnvironment.Variables.AUDIT = '';
+			SET OutputLocalEnvironment.Variables.NOTES = '文件读取开始';
+			PROPAGATE;
+		END IF;
+		
+		
+		-- 组织机构代码验证
+		DECLARE isValid Boolean FALSE;
+		DECLARE front CHARACTER;
+		DECLARE checkBit CHARACTER;
+		IF LENGTH(InputRoot.XMLNSC.Records.ZZJGDM) = 9 THEN
+			SET front = SUBSTRING(InputRoot.XMLNSC.Records.ZZJGDM FROM 1 FOR 8);
+			SET checkBit = SUBSTRING(InputRoot.XMLNSC.Records.ZZJGDM FROM 9 FOR 1);
+			CALL checkOrgCode(front, checkBit, isValid);
+		END IF;
+		
+		IF isValid = FALSE THEN
+			SET FAILE = FAILE + 1;
+	    	
+	    	-- INSERT Err Data
+			DECLARE Note CHARACTER;
+			IF LENGTH(InputRoot.XMLNSC.Records.ZZJGDM) > 9 THEN
+				SET Note = InputRoot.XMLNSC.Records.ZZJGDM;
+			ELSE
+				SET Note = InputRoot.XMLNSC.Records.ZZJGDM||','||InputRoot.XMLNSC.Records.QYMC||','||InputRoot.XMLNSC.Records.KSRQ||
+	    				','||InputRoot.XMLNSC.Records.JZRQ||','||InputRoot.XMLNSC.Records.ZCZJ||','||InputRoot.XMLNSC.Records.FDDBR||
+	    				','||InputRoot.XMLNSC.Records.ZJLX;
+			END IF;
+	    	
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputRoot.XMLNSC.Records.FileName,InputRoot.XMLNSC.Records.ID,'组织机构代码错误',Note);
+				
+	    	IF InputRoot.XMLNSC.Records.ID = TOTAL THEN
+	    		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+				SET OutputLocalEnvironment.Variables.TYPE = '信息';
+				SET OutputLocalEnvironment.Variables.PROCESS = '流程2';
+				SET OutputLocalEnvironment.Variables.FILE = InputRoot.XMLNSC.Records.FileName;
+				SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TOTAL AS CHARACTER)||
+															' 正确：'||CAST(TOTAL - FAILE AS CHARACTER)||
+															' 错误：'||CAST(FAILE AS CHARACTER);
+				SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+				PROPAGATE;
+	    	END IF;
+
+	    	RETURN FALSE;
+		END IF;
+     		
+     	-- 日期验证
+     	DECLARE sourceDate CHARACTER;
+     	DECLARE YearStr CHARACTER;
+     	DECLARE MonthStr CHARACTER;
+     	DECLARE DayStr CHARACTER;
+        DECLARE KSRQ DATE;
+        DECLARE JZRQ DATE;
+        DECLARE KSRQCheck DATE;
+        DECLARE JZRQCheck DATE;
+        DECLARE pattern CHARACTER 'yyyy-MM-dd';
+        DECLARE isDate BOOLEAN true;
+        -- 设立日期
+        SET sourceDate = InputRoot.XMLNSC.Records.KSRQ;
+        CALL ChangeDate(sourceDate,isDate,KSRQ);
+	    -- 年审日期
+	    SET sourceDate = InputRoot.XMLNSC.Records.JZRQ;
+	    CALL ChangeDate(sourceDate,isDate,JZRQ);
+	    
+	    IF isDate = false THEN
+			SET FAILE = FAILE + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = InputRoot.XMLNSC.Records.ZZJGDM||','||InputRoot.XMLNSC.Records.QYMC||','||InputRoot.XMLNSC.Records.KSRQ||
+	    				','||InputRoot.XMLNSC.Records.JZRQ||','||InputRoot.XMLNSC.Records.ZCZJ||','||InputRoot.XMLNSC.Records.FDDBR||
+	    				','||InputRoot.XMLNSC.Records.ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputRoot.XMLNSC.Records.FileName,InputRoot.XMLNSC.Records.ID,'日期错误',Note);
+				
+	    	IF InputRoot.XMLNSC.Records.ID = TOTAL THEN
+	    		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+				SET OutputLocalEnvironment.Variables.TYPE = '信息';
+				SET OutputLocalEnvironment.Variables.PROCESS = '流程2';
+				SET OutputLocalEnvironment.Variables.FILE = InputRoot.XMLNSC.Records.FileName;
+				SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TOTAL AS CHARACTER)||
+															' 正确：'||CAST(TOTAL - FAILE AS CHARACTER)||
+															' 错误：'||CAST(FAILE AS CHARACTER);
+				SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+				PROPAGATE;
+	    	END IF;
+
+	    	RETURN FALSE;
+		END IF;
+	    
+	    SET KSRQCheck = CAST('1949-10-01' AS DATE FORMAT pattern);
+	    SET JZRQCheck = CAST('2009-01-01' AS DATE FORMAT pattern);
+	    IF (KSRQ <= KSRQCheck) OR (JZRQ >= JZRQCheck) OR KSRQ > JZRQ THEN
+	    	
+	    	SET FAILE = FAILE + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = InputRoot.XMLNSC.Records.ZZJGDM||','||InputRoot.XMLNSC.Records.QYMC||','||InputRoot.XMLNSC.Records.KSRQ||
+	    				','||InputRoot.XMLNSC.Records.JZRQ||','||InputRoot.XMLNSC.Records.ZCZJ||','||InputRoot.XMLNSC.Records.FDDBR||
+	    				','||InputRoot.XMLNSC.Records.ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputRoot.XMLNSC.Records.FileName,InputRoot.XMLNSC.Records.ID,'日期错误',Note);
+				
+	    	IF InputRoot.XMLNSC.Records.ID = TOTAL THEN
+	    		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+				SET OutputLocalEnvironment.Variables.TYPE = '信息';
+				SET OutputLocalEnvironment.Variables.PROCESS = '流程2';
+				SET OutputLocalEnvironment.Variables.FILE = InputRoot.XMLNSC.Records.FileName;
+				SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TOTAL AS CHARACTER)||
+															' 正确：'||CAST(TOTAL - FAILE AS CHARACTER)||
+															' 错误：'||CAST(FAILE AS CHARACTER);
+				SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+				PROPAGATE;
+	    	END IF;
+
+	    	RETURN FALSE;
+	    END IF;
+	    
+	    -- 转化为元
+	    DECLARE money DECIMAL;
+	    
+	    IF LENGTH(TRIM(InputRoot.XMLNSC.Records.ZCZJ))=0 THEN
+	    	SET money = 0;
+	    ELSE
+	    	SET money = CAST(InputRoot.XMLNSC.Records.ZCZJ AS DECIMAL);
+	    	SET money = money*10000;
+	    END IF; 
+	    
+	    -- 剔除*，？
+	    IF CONTAINS(InputRoot.XMLNSC.Records.QYMC, '*') OR CONTAINS(InputRoot.XMLNSC.Records.QYMC, '?') THEN
+	    	
+	    	SET FAILE = FAILE + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = InputRoot.XMLNSC.Records.ZZJGDM||','||InputRoot.XMLNSC.Records.QYMC||','||InputRoot.XMLNSC.Records.KSRQ||
+	    				','||InputRoot.XMLNSC.Records.JZRQ||','||InputRoot.XMLNSC.Records.ZCZJ||','||InputRoot.XMLNSC.Records.FDDBR||
+	    				','||InputRoot.XMLNSC.Records.ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputRoot.XMLNSC.Records.FileName,InputRoot.XMLNSC.Records.ID,'包含特殊字符',Note);
+				
+	    	IF InputRoot.XMLNSC.Records.ID = TOTAL THEN
+	    		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+				SET OutputLocalEnvironment.Variables.TYPE = '信息';
+				SET OutputLocalEnvironment.Variables.PROCESS = '流程2';
+				SET OutputLocalEnvironment.Variables.FILE = InputRoot.XMLNSC.Records.FileName;
+				SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TOTAL AS CHARACTER)||
+															' 正确：'||CAST(TOTAL - FAILE AS CHARACTER)||
+															' 错误：'||CAST(FAILE AS CHARACTER);
+				SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+				PROPAGATE;
+	    	END IF;
+	    	
+	    	RETURN FALSE;
+	    END IF;
+
+		-- 法人代表
+	    IF LENGTH(InputRoot.XMLNSC.Records.FDDBR) > 20 THEN
+	    	SET FAILE = FAILE + 1;
+	    	
+	    	-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	SET Note = InputRoot.XMLNSC.Records.ZZJGDM||','||InputRoot.XMLNSC.Records.QYMC||','||InputRoot.XMLNSC.Records.KSRQ||
+	    				','||InputRoot.XMLNSC.Records.JZRQ||','||InputRoot.XMLNSC.Records.ZCZJ||','||InputRoot.XMLNSC.Records.FDDBR||
+	    				','||InputRoot.XMLNSC.Records.ZJLX;
+			INSERT INTO Database.AT1_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputRoot.XMLNSC.Records.FileName,InputRoot.XMLNSC.Records.ID,'字段超长',Note);
+				
+	    	IF InputRoot.XMLNSC.Records.ID = TOTAL THEN
+	    		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+				SET OutputLocalEnvironment.Variables.TYPE = '信息';
+				SET OutputLocalEnvironment.Variables.PROCESS = '流程2';
+				SET OutputLocalEnvironment.Variables.FILE = InputRoot.XMLNSC.Records.FileName;
+				SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TOTAL AS CHARACTER)||
+															' 正确：'||CAST(TOTAL - FAILE AS CHARACTER)||
+															' 错误：'||CAST(FAILE AS CHARACTER);
+				SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+				PROPAGATE;
+	    	END IF;
+	    	
+	    	RETURN FALSE;
+	    END IF;
+	    
+	    -- 去空格
+	    DECLARE CompanyName CHARACTER;
+	    SET CompanyName = TRIM(InputRoot.XMLNSC.Records.QYMC);
+	    
+	    --INSERT DATA
+	    DECLARE OldType ChARACTER;
+	    DECLARE NewType ChARACTER;
+	    SET OldType = InputRoot.XMLNSC.Records.ZJLX;
+	    SET OutputRoot.XMLNSC.NewType[] = (SELECT T.New_Type FROM Database.AT1_DICT AS T WHERE T.Old_Type = OldType);
+	    SET NewType = OutputRoot.XMLNSC.NewType[1].New_Type;
+	    INSERT INTO Database.AT1 (InFileName,InFileNo,zzjgdm,UnitName,StartTime,EndTime,Cash,PeopleName,CerType,OutXMLFileName) 
+	         VALUES (InputRoot.XMLNSC.Records.FileName,InputRoot.XMLNSC.Records.ID,InputRoot.XMLNSC.Records.ZZJGDM,
+	              CompanyName,KSRQ,JZRQ,money,InputRoot.XMLNSC.Records.FDDBR, NewType,'a2c.xml');
+	       
+	    -- End Data
+	    IF InputRoot.XMLNSC.Records.ID = TOTAL THEN
+	    	SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+			SET OutputLocalEnvironment.Variables.TYPE = '信息';
+			SET OutputLocalEnvironment.Variables.PROCESS = '流程2';
+			SET OutputLocalEnvironment.Variables.FILE = InputRoot.XMLNSC.Records.FileName;
+			SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TOTAL AS CHARACTER)||
+														' 正确：'||CAST(TOTAL - FAILE AS CHARACTER)||
+														' 错误：'||CAST(FAILE AS CHARACTER);
+			SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+			PROPAGATE;
+	    END IF;
+	    
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+	CREATE PROCEDURE checkOrgCode (
+  		IN orgCode CHARACTER,
+  		IN verifyCode Char,
+		OUT isValid  Boolean)
+BEGIN
+    	SET Environment.WeightFactors[1] = 3;
+    	SET Environment.WeightFactors[2] = 7;
+    	SET Environment.WeightFactors[3] = 9;
+    	SET Environment.WeightFactors[4] = 10;
+    	SET Environment.WeightFactors[5] = 5;
+    	SET Environment.WeightFactors[6] = 8;
+    	SET Environment.WeightFactors[7] = 4;
+    	SET Environment.WeightFactors[8] = 2;
+
+    	DECLARE I INTEGER 1;
+		DECLARE J INTEGER 8;
+		
+		DECLARE sum INTEGER 0;
+		DECLARE weight INTEGER;
+		DECLARE codeNum INTEGER;
+		
+		WHILE I <= J DO
+			
+			CALL getNumber(SUBSTRING(orgCode FROM I FOR 1), codeNum);
+			SET weight = Environment.WeightFactors[I];
+			SET sum = sum + (codeNum * weight);
+			
+			SET I = I + 1;
+
+		END WHILE;
+		
+		DECLARE modnum INTEGER;
+		SET modnum = 11 - MOD(sum, 11);
+		
+		IF modnum = 10 AND verifyCode = 'X' THEN
+			SET isValid = true;
+		ELSEIF modnum = 11 AND verifyCode = '0' THEN
+			SET isValid = true;
+		ELSEIF verifyCode = CAST(modnum AS CHAR) THEN
+			SET isValid = true;
+		ELSE 
+			SET isValid = false;
+		END IF;		
+		
+END;
+	
+CREATE PROCEDURE getNumber(IN chaa CHAR, OUT num INTEGER)
+BEGIN
+	SET num = 
+   			CASE chaa
+	      		WHEN '0' THEN 0 
+	   			WHEN '1' THEN 1
+				WHEN '2' THEN 2
+				WHEN '3' THEN 3
+				WHEN '4' THEN 4
+				WHEN '5' THEN 5
+				WHEN '6' THEN 6
+				WHEN '7' THEN 7
+				WHEN '8' THEN 8
+				WHEN '9' THEN 9
+				WHEN 'A' THEN 10
+				WHEN 'B' THEN 11
+				WHEN 'C' THEN 12				
+				WHEN 'D' THEN 13
+				WHEN 'E' THEN 14
+				WHEN 'F' THEN 15
+				WHEN 'G' THEN 16
+				WHEN 'H' THEN 17
+				WHEN 'I' THEN 18
+				WHEN 'J' THEN 19				
+				WHEN 'K' THEN 20
+				WHEN 'L' THEN 21
+				WHEN 'M' THEN 22
+				WHEN 'N' THEN 23
+				WHEN 'O' THEN 24
+				WHEN 'P' THEN 25
+				WHEN 'Q' THEN 26
+				WHEN 'R' THEN 27				
+				WHEN 'S' THEN 28
+				WHEN 'T' THEN 29
+				WHEN 'U' THEN 30
+				WHEN 'V' THEN 31
+				WHEN 'W' THEN 32
+				WHEN 'X' THEN 33
+				WHEN 'Y' THEN 34				
+				WHEN 'Z' THEN 35
+			ELSE 0
+   			END;
+END;
+	
+END MODULE;
+
+
+CREATE COMPUTE MODULE ExcelTest_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	    -- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		-- ignored for XML domain
+		--SET OutputRoot.Properties.MessageSet = 'ExcelParser';
+		--SET OutputRoot.Properties.MessageType = 'workbook';
+		--SET OutputRoot.Properties.MessageFormat = 'XML1';
+		
+		-- get the number of xls file records
+		DECLARE count INTEGER;
+        SET count = CARDINALITY(InputRoot.XML.workbook.sheet[1].row[]);
+        SET TOTAL = count-1 ;
+        
+        DECLARE i INTEGER 2;
+        WHILE i <= count DO 
+  			--use the default tooling-generated procedure for copying message headers 
+  			CALL CopyMessageHeaders(); 
+  			SET OutputRoot.XMLNSC.Records.ID = i-1;
+  			SET OutputRoot.XMLNSC.Records.FileName = InputLocalEnvironment.File.Name;
+  			SET OutputRoot.XMLNSC.Records.ZZJGDM = InputRoot.XML.workbook.sheet[1].row[i].cell[1]; 
+  			SET OutputRoot.XMLNSC.Records.QYMC = InputRoot.XML.workbook.sheet[1].row[i].cell[2];
+  			SET OutputRoot.XMLNSC.Records.KSRQ = InputRoot.XML.workbook.sheet[1].row[i].cell[3];
+  			SET OutputRoot.XMLNSC.Records.JZRQ = InputRoot.XML.workbook.sheet[1].row[i].cell[4];
+  			SET OutputRoot.XMLNSC.Records.ZCZJ = InputRoot.XML.workbook.sheet[1].row[i].cell[5];
+  			SET OutputRoot.XMLNSC.Records.FDDBR = InputRoot.XML.workbook.sheet[1].row[i].cell[6];
+  			SET OutputRoot.XMLNSC.Records.ZJLX = InputRoot.XML.workbook.sheet[1].row[i].cell[7];
+  		    PROPAGATE; 
+  			SET i = i+1; 
+		END WHILE; 
+		
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

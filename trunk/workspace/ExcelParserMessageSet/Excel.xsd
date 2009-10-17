@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="workbook">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="sheet" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="sheet">
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:element ref="row" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="name" use="required">
+			</xs:attribute>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="row">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="cell" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="number" use="required">
+
+			</xs:attribute>
+			<xs:attribute name="lastcol" use="required">
+			</xs:attribute>
+			<xs:attribute name="firstcol" use="required">
+			</xs:attribute>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="cell">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="type" use="required">
+						<xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="boolean"/>
+								<xs:enumeration value="formula"/>
+								<xs:enumeration value="numeric"/>
+								<xs:enumeration value="string"/>
+								<xs:enumeration value="blank"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+					<xs:attribute name="number" use="required">
+					</xs:attribute>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

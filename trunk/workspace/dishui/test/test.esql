@@ -1,0 +1,91 @@
+BROKER SCHEMA test
+
+
+CREATE COMPUTE MODULE test_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN 
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+--		DECLARE testPara CHARACTER;
+--		CALL copyMessageHeaders();
+--		SEt testPara = 'AAA';
+--		SET testPara = TRIm(testPara);
+--		
+--		DECLARE strSql  CHARACTER;
+--		SET strSql = 'insert into test values (''222'',''222'');
+--		insert into test values (''333'',''333'');';
+--		passthru strSql to Database.orcl;
+
+ 		CALL CreateXML();
+
+		
+		RETURN TRUE;
+	END;
+	 
+	
+	CREATE PROCEDURE CreateXML() 
+	BEGIN
+		DECLARE rowData ROW;
+		DECLARE strSqlXML CHARACTER;
+		DECLARE dataNum INTEGER;
+		DECLARE i INTEGER 1;
+	
+		-- 取得增量数据
+		SET strSqlXML = 'select *
+			  from t_dishui_djxx
+			 where to_char(createtime, ''yyyy-mm-dd'') > ''2009-09-01''';		
+		IF dataNum = 0  then 
+			throw user exception message 2951 values('从' || '表中没有查询出对应的详细信息！');-- 这种情况基本上不会发生
+		END IF;
+		SET rowData.row[] = passthru(strSqlXML to Database.orcl);
+		SET dataNum = CARDINALITY(rowData.row[]);
+		
+		IF dataNum <> 0 THEN
+			SET OutputRoot.XMLNSC.root.RESULT.COUNT = '20';
+			SET OutputRoot.XMLNSC.root.RESULT.SUCC = '5';
+			SET OutputRoot.XMLNSC.root.RESULT.FORMATERROR = '15';			
+			FOR source1 AS rowData.row[]  DO
+				SET OutputRoot.XMLNSC.root.rowset.row[i].(XMLNSC.Attribute)num = i;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].RECID = source1.RECID;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].BATCHNUM = source1.BATCHNUM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].FILECODE = source1.FILECODE;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].SOURCENAME = source1.SOURCENAME;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].LINENUM = source1.LINENUM ;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].CREATETIME = source1.CREATETIME ;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].MD5CODE = source1.MD5CODE;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].ZZJGDM = source1.ZZJGDM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].QYMC = source1.QYMC;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].QYZCH = source1.QYZCH;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].NSRSBH = source1.NSRSBH;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].HSFSDM = source1.HSFSDM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].HSFSMC = source1.HSFSMC;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].ZY = source1.ZY;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].JY = source1.JY;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].DJRQ = source1.DJRQ;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].DJJGDM = source1.DJJGDM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].DJJGMC = source1.DJJGMC;
+				SET i = i+1;
+			END FOR;
+			
+			
+			SET  OutputLocalEnvironment.Destination.File.Name = 'test.xml';			
+			--  TO fileOutput
+			PROPAGATE TO TERMINAL 'out';
+		END IF;
+	END;	
+	
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

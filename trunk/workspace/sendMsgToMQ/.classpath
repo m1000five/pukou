@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path=""/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/mqlib"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.defaultconfig.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/CL3Export.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/rmm.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/providerutil.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/ldap.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/jta.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/jndi.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/jms.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/fscontext.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/dhbcore.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/connector.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mqjms.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.soap.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.postcard.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.pcf.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.jms.Nojndi.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.jmqi.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.headers.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/com.ibm.mq.commonservices.jar"/>
+	<classpathentry kind="lib" path="C:/IBM/WebSphere MQ/java/lib/CL3Nonexport.jar"/>
+	<classpathentry kind="output" path=""/>
+</classpath>

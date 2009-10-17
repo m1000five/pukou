@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFileInput.msgnode="ComIbmFileInput.msgnode" xmlns:ComIbmFileOutput.msgnode="ComIbmFileOutput.msgnode" xmlns:ComIbmIsswExcelParserNode.msgnode="ComIbmIsswExcelParserNode.msgnode" xmlns:ComIbmRoute.msgnode="ComIbmRoute.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="WriteExcelToDBDishui.msgflow"
+    nsPrefix="WriteExcelToDBDishui.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="WriteExcelToDBDishui" bundleName="WriteExcelToDBDishui" pluginId="dishui"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/dishui/icons/full/obj16/WriteExcelToDBDishui.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/dishui/icons/full/obj30/WriteExcelToDBDishui.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmFileInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="21,171" inputDirectory="e:\tmp\jscredit\" filenamePattern="*.xls" processedFileAction="moveToArchive" replaceDuplicateArchives="true" messageDomainProperty="BLOB">
+        <translation xmi:type="utility:ConstantString" string="FileInput"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFileOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="638,277" outputDirectory="d:/iistemp/dishui/xml" outputFilename="dishui_djxx.xml">
+        <translation xmi:type="utility:ConstantString" string="FileOutput"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFileOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="645,156" outputDirectory="d:/iistemp/dishui/log/" outputFilename="log.txt" recordDefinition="delimited">
+        <translation xmi:type="utility:ConstantString" string="FileOutput1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmIsswExcelParserNode.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="79,100" ccsid="1386">
+        <translation xmi:type="utility:ConstantString" string="ComIbmIsswExcelParserNode"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="236,72" dataSource="TESTDB" computeExpression="esql://routine/#WriteExcelToDBDishui_GetFileInfo.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="GetFileInfo"/>
+      </nodes>
+      <nodes xmi:type="ComIbmRoute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="338,67">
+        <outTerminals terminalNodeID="DJXX" dynamic="true" label="DJXX"/>
+        <outTerminals terminalNodeID="ZXXX" dynamic="true" label="ZXXX"/>
+        <translation xmi:type="utility:ConstantString" string="ExcelRoute"/>
+        <filterTable filterPattern="$LocalEnvironment/Variables/TabName = 'T_DISHUI_DJXX'" routingOutputTerminal="DJXX"/>
+        <filterTable filterPattern="$LocalEnvironment/Variables/TabName = 'T_DISHUI_ZXXX'" routingOutputTerminal="ZXXX"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="443,32" computeExpression="esql://routine/#WriteExcelToDBDishui_DJXXExcel.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="DJXXExcel"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="452,107" computeExpression="esql://routine/#WriteExcelToDBDishui_ZXXXExcel.Main">
+        <translation xmi:type="utility:ConstantString" string="ZXXXExcel"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="597,39" dataSource="TESTDB" computeExpression="esql://routine/#WriteExcelToDBDishui_DJXXExcelLine.Main">
+        <translation xmi:type="utility:ConstantString" string="DJXXExcelLine"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="161,229" computeExpression="esql://routine/#WriteExcelToDBDishui_ResetFile.Main">
+        <translation xmi:type="utility:ConstantString" string="ResetFile"/>
+      </nodes>
+      <nodes xmi:type="ComIbmRoute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="261,236">
+        <outTerminals terminalNodeID="DJXX" dynamic="true" label="DJXX"/>
+        <outTerminals terminalNodeID="ZXXX" dynamic="true" label="ZXXX"/>
+        <translation xmi:type="utility:ConstantString" string="EOFRoute"/>
+        <filterTable filterPattern="$LocalEnvironment/Variables/TabName = 'T_DISHUI_DJXX'" routingOutputTerminal="DJXX"/>
+        <filterTable filterPattern="$LocalEnvironment/Variables/TabName = 'T_DISHUI_ZXXX'" routingOutputTerminal="ZXXX"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="387,208" dataSource="TESTDB" computeExpression="esql://routine/#WriteExcelToDBDishui_DJXXExcelEOF.Main">
+        <translation xmi:type="utility:ConstantString" string="DJXXExcelEOF"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_13" location="387,279" computeExpression="esql://routine/#WriteExcelToDBDishui_ZXXXExcelEOF.Main">
+        <translation xmi:type="utility:ConstantString" string="ZXXXExcelEOF"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_4" sourceTerminalName="DJXX" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_4" sourceTerminalName="ZXXX" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.EOD" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_10" sourceTerminalName="DJXX" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_13" sourceNode="FCMComposite_1_10" sourceTerminalName="ZXXX" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_14" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_16" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_17" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.out2" targetTerminalName="InTerminal.EOD"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_18" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.out2" targetTerminalName="InTerminal.EOD"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_19" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_20" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+  </eClassifiers>
+</ecore:EPackage>

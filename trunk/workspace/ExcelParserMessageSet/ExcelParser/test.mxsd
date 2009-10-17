@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="workbook">
+        <xs:annotation>
+      <xs:appinfo source="WMQI_APPINFO">
+        <MRMessage messageDefinition="/0/workbook;XSDElementDeclaration$MRObject"/>
+      </xs:appinfo>
+    </xs:annotation>
+        <xs:complexType>
+			<xs:sequence>
+				<xs:element maxOccurs="unbounded" minOccurs="0" ref="sheet"/>
+			</xs:sequence>
+            <xs:attributeGroup ref="ComIbmMrmNamespaceInfo"/>
+        </xs:complexType>
+	</xs:element>
+	<xs:element name="sheet">
+        <xs:annotation>
+      <xs:appinfo source="WMQI_APPINFO">
+        <MRMessage messageDefinition="/0/sheet;XSDElementDeclaration=1$MRObject"/>
+      </xs:appinfo>
+    </xs:annotation>
+        <xs:complexType mixed="true">
+            <xs:annotation>
+        <xs:appinfo source="WMQI_APPINFO">
+          <MRComplexType content="open"/>
+        </xs:appinfo>
+      </xs:annotation>
+            <xs:sequence>
+				<xs:element maxOccurs="unbounded" minOccurs="0" ref="row"/>
+			</xs:sequence>
+			<xs:attribute name="name" use="required">
+                <xs:annotation>
+          <xs:appinfo source="WMQI_APPINFO">
+            <cwfInclRep messageSetDefaultRep="CWF1">
+              <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+            </cwfInclRep>
+          </xs:appinfo>
+        </xs:annotation>
+            </xs:attribute>
+            <xs:attributeGroup ref="ComIbmMrmNamespaceInfo"/>
+        </xs:complexType>
+	</xs:element>
+	<xs:element name="row">
+        <xs:annotation>
+      <xs:appinfo source="WMQI_APPINFO">
+        <MRMessage messageDefinition="/0/row;XSDElementDeclaration=2$MRObject"/>
+      </xs:appinfo>
+    </xs:annotation>
+        <xs:complexType>
+			<xs:sequence>
+				<xs:element maxOccurs="unbounded" minOccurs="0" ref="cell">
+          <xs:annotation>
+            <xs:appinfo source="WMQI_APPINFO">
+              <cwfInclRep messageSetDefaultRep="CWF1">
+                <cwfSimpleRep encodingNull="NullLogicalValue" mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="100"/>
+              </cwfInclRep>
+            </xs:appinfo>
+          </xs:annotation>
+        </xs:element>
+			</xs:sequence>
+			<xs:attribute name="number" use="required">
+
+                <xs:annotation>
+          <xs:appinfo source="WMQI_APPINFO">
+            <cwfInclRep messageSetDefaultRep="CWF1">
+              <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+            </cwfInclRep>
+          </xs:appinfo>
+        </xs:annotation>
+            </xs:attribute>
+			<xs:attribute name="lastcol" use="required">
+                <xs:annotation>
+          <xs:appinfo source="WMQI_APPINFO">
+            <cwfInclRep messageSetDefaultRep="CWF1">
+              <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+            </cwfInclRep>
+          </xs:appinfo>
+        </xs:annotation>
+            </xs:attribute>
+			<xs:attribute name="firstcol" use="required">
+                <xs:annotation>
+          <xs:appinfo source="WMQI_APPINFO">
+            <cwfInclRep messageSetDefaultRep="CWF1">
+              <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+            </cwfInclRep>
+          </xs:appinfo>
+        </xs:annotation>
+            </xs:attribute>
+            <xs:attributeGroup ref="ComIbmMrmNamespaceInfo"/>
+        </xs:complexType>
+	</xs:element>
+	<xs:element name="cell">
+        <xs:annotation>
+      <xs:appinfo source="WMQI_APPINFO">
+        <MRMessage messageDefinition="/0/cell;XSDElementDeclaration=3$MRObject"/>
+      </xs:appinfo>
+    </xs:annotation>
+        <xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="type" use="required">
+                        <xs:annotation>
+              <xs:appinfo source="WMQI_APPINFO">
+                <cwfInclRep messageSetDefaultRep="CWF1">
+                  <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+                </cwfInclRep>
+              </xs:appinfo>
+            </xs:annotation>
+                        <xs:simpleType>
+							<xs:restriction base="xs:string">
+								<xs:enumeration value="boolean"/>
+								<xs:enumeration value="formula"/>
+								<xs:enumeration value="numeric"/>
+								<xs:enumeration value="string"/>
+								<xs:enumeration value="blank"/>
+							</xs:restriction>
+						</xs:simpleType>
+					</xs:attribute>
+					<xs:attribute name="number" use="required">
+                        <xs:annotation>
+              <xs:appinfo source="WMQI_APPINFO">
+                <cwfInclRep messageSetDefaultRep="CWF1">
+                  <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+                </cwfInclRep>
+              </xs:appinfo>
+            </xs:annotation>
+                    </xs:attribute>
+                    <xs:attributeGroup ref="ComIbmMrmNamespaceInfo"/>
+                </xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+    <xs:attributeGroup name="ComIbmMrmNamespaceInfo">
+    <xs:attribute default="test.mxsd" name="xsi_schemaLocation" type="xs:string">
+      <xs:annotation>
+        <xs:appinfo source="WMQI_APPINFO">
+          <xmlAttrRep messageSetDefaultRep="XML1" xmlName="xsi:schemaLocation"/>
+          <cwfInclRep messageSetDefaultRep="CWF1">
+            <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+          </cwfInclRep>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute default="http://www.w3.org/2001/XMLSchema" name="xmlns_xs" type="xs:string">
+      <xs:annotation>
+        <xs:appinfo source="WMQI_APPINFO">
+          <xmlAttrRep messageSetDefaultRep="XML1" xmlName="xmlns:xs"/>
+          <cwfInclRep messageSetDefaultRep="CWF1">
+            <cwfSimpleRep mrLengthEncoding="fixedLength" paddingCharacter="NUL" typeName="MRCWFStringRep" width="10"/>
+          </cwfInclRep>
+        </xs:appinfo>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+    <xs:complexType name="workbook">
+    <xs:sequence>
+      <xs:element ref="workbook"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

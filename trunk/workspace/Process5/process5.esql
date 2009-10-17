@@ -1,0 +1,115 @@
+
+
+CREATE COMPUTE MODULE process5_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		-- Get Data From DPT
+		DECLARE sqlstr CHARACTER 'SELECT distinct zzjgdm, UnitName, StartTime, EndTime, Cash, PeopleName, CerType FROM AT1 ';
+		SET Environment.Variables.AT1.Record[] = PASSTHRU(sqlstr to Database.db_A);
+        SET Environment.Variables.RepeatCount = CARDINALITY(Environment.Variables.AT1.Record[]);
+        DECLARE i INTEGER 1;
+		FOR source AS Environment.Variables.AT1.Record[] DO
+			
+			SET sqlstr = 'SELECT InFileName, InFileNo, zzjgdm, UnitName, StartTime, EndTime, Cash, PeopleName, CerType FROM AT1 
+						WHERE zzjgdm = ? AND UnitName = ? AND StartTime = ? AND EndTime= ? AND Cash = ? AND PeopleName = ? AND CerType = ?';
+			SET Environment.Variables.AT1.NewRecord[] = PASSTHRU(sqlstr to Database.db_A VALUES(source.zzjgdm,source.UnitName,source.StartTime,
+																source.EndTime,source.Cash,source.PeopleName,source.CerType));
+			SET Environment.Variables.Count = i;
+			--SET OutputRoot.XMLNSC.AT1.Record.ID = i;
+			--SET OutputRoot.XMLNSC.AT1.Record.ZZJGDM = source.ZZJGDM;
+			--SET OutputRoot.XMLNSC.AT1.Record.QYMC = source.QYMC;
+			--SET OutputRoot.XMLNSC.AT1.Record.KSRQ = source.KSRQ;
+			--SET OutputRoot.XMLNSC.AT1.Record.JZRQ = source.JZRQ;
+			--SET OutputRoot.XMLNSC.AT1.Record.ZCZJ = source.ZCZJ;
+			--SET OutputRoot.XMLNSC.AT1.Record.FDDBR = source.FDDBR;
+			--SET OutputRoot.XMLNSC.AT1.Record.ZJLX = source.ZJLX;
+     		PROPAGATE;
+     		SET i = i + 1;
+		END FOR;
+		
+		RETURN FALSE;
+		--RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE process5_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+	    IF Environment.Variables.Count = 1 THEN
+			SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+			SET OutputLocalEnvironment.Variables.TYPE = '信息';
+			SET OutputLocalEnvironment.Variables.PROCESS = '流程5';
+			SET OutputLocalEnvironment.Variables.FILE = InputLocalEnvironment.File.Name;
+			SET OutputLocalEnvironment.Variables.AUDIT = CAST(Environment.Variables.RepeatCount AS CHARACTER);
+			SET OutputLocalEnvironment.Variables.NOTES = '数据同步开始';
+			PROPAGATE;
+		END IF;
+		
+		-- GET id
+		--DECLARE ID INTEGER;
+		SET Environment.Variables.ID[] = passthru('SELECT pocid.nextval AS POCID FROM DUAL' to Database.orac_db2);
+	    
+	    --INSERT DATA TO AT1
+--	    DECLARE strsql CHARACTER;
+--	    SET strsql = 'INSERT INTO DAT2 (ID,INFILENAME,INFILENO,ZZJGDM,UNITNAME,STARTTIME,ENDTIME,CASH,CERTYPE,PEOPLENAME) VALUES 
+--	 (?,?,?,?,?,?,?,?,?,?)';
+--	    passthru strsql to Database.orac_db2 values (Environment.Variables.ID[1].POCID,
+--	    			Environment.Variables.AT1.NewRecord[1].InFileName, Environment.Variables.AT1.NewRecord[1].InFileNo,
+--	         		Environment.Variables.AT1.NewRecord[1].zzjgdm,Environment.Variables.AT1.NewRecord[1].UnitName,
+--	         		Environment.Variables.AT1.NewRecord[1].StartTime,Environment.Variables.AT1.NewRecord[1].EndTime,
+--	         		Environment.Variables.AT1.NewRecord[1].Cash,Environment.Variables.AT1.NewRecord[1].CerType,
+--	         		Environment.Variables.AT1.NewRecord[1].PeopleName);
+	    INSERT INTO Database.DAT2 (ID,INFILENAME,INFILENO,ZZJGDM,UNITNAME,STARTTIME,ENDTIME,CASH,CERTYPE,PEOPLENAME) 
+	         VALUES (Environment.Variables.ID[1].POCID,Environment.Variables.AT1.NewRecord[1].InFileName, Environment.Variables.AT1.NewRecord[1].InFileNo,
+	         		Environment.Variables.AT1.NewRecord[1].zzjgdm,Environment.Variables.AT1.NewRecord[1].UnitName,
+	         		Environment.Variables.AT1.NewRecord[1].StartTime,Environment.Variables.AT1.NewRecord[1].EndTime,
+	         		Environment.Variables.AT1.NewRecord[1].Cash,Environment.Variables.AT1.NewRecord[1].CerType,
+	         		Environment.Variables.AT1.NewRecord[1].PeopleName);
+	       
+	    -- End Data
+	    IF Environment.Variables.Count = Environment.Variables.RepeatCount THEN
+	    	SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+			SET OutputLocalEnvironment.Variables.TYPE = '信息';
+			SET OutputLocalEnvironment.Variables.PROCESS = '流程5';
+			SET OutputLocalEnvironment.Variables.FILE = InputLocalEnvironment.File.Name;
+			SET OutputLocalEnvironment.Variables.AUDIT = '去重后数据：'||CAST(Environment.Variables.RepeatCount AS CHARACTER);
+			SET OutputLocalEnvironment.Variables.NOTES = '数据同步完成';
+			PROPAGATE;
+	    END IF;
+	    
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

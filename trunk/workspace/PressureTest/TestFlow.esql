@@ -1,0 +1,466 @@
+Declare TotalRecord SHARED INTEGER 0;
+Declare FailedRecord SHARED INTEGER 0;
+Declare RepeatRecord SHARED INTEGER 0;
+Declare IsFirstData SHARED BOOLEAN TRUE;
+
+CREATE COMPUTE MODULE TestFlow_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		SET TotalRecord = TotalRecord + 1;
+		
+		-- Write Start Log
+		IF TotalRecord = 1 THEN
+			SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+			SET OutputLocalEnvironment.Variables.TYPE = '信息';
+			SET OutputLocalEnvironment.Variables.PROCESS = '测试流程';
+			SET OutputLocalEnvironment.Variables.FILE = InputLocalEnvironment.File.Name;
+			SET OutputLocalEnvironment.Variables.AUDIT = '';
+			SET OutputLocalEnvironment.Variables.NOTES = '文件读取开始';
+			PROPAGATE;
+		END IF;
+		
+		-- GET RECORD
+		DECLARE createtime TIMESTAMP;
+		DECLARE ZZJGDM CHARACTER;
+		DECLARE QYMC CHARACTER;
+		DECLARE QYMC_YW CHARACTER;
+		DECLARE QYZCH CHARACTER;
+		DECLARE SHBXBH CHARACTER;
+		DECLARE JFNY CHARACTER;
+		DECLARE JFJS DECIMAL;
+		DECLARE YJJEHJ DECIMAL;
+		DECLARE DWYJJE DECIMAL;
+		DECLARE GRYJJE DECIMAL;
+		DECLARE SJJEHJ DECIMAL;
+		DECLARE DWSJJE DECIMAL;
+		DECLARE GRSJJE DECIMAL;
+		DECLARE BJJEHJ DECIMAL;
+		DECLARE DWBJJE DECIMAL;
+		DECLARE GRBJJE DECIMAL;
+		DECLARE BJZNJ DECIMAL;
+		DECLARE BJLX DECIMAL;
+		DECLARE JBJGDM CHARACTER;
+		DECLARE GZZE DECIMAL;
+		DECLARE GRJFJS DECIMAL;
+		DECLARE DWYBJJE DECIMAL;
+		DECLARE GRYBJJE DECIMAL;
+		DECLARE DWSBJJE DECIMAL;
+		DECLARE JHBJJE DECIMAL;
+		DECLARE GRSBJJE DECIMAL;
+		DECLARE TSJE DECIMAL;
+		DECLARE YJJE DECIMAL;
+		DECLARE HXJE DECIMAL;
+		DECLARE CONNECTIONFLAG CHARACTER;
+		
+		-- SET RECORD
+		SET createtime = CURRENT_TIMESTAMP;
+		SET ZZJGDM = TRIM('"' FROM InputRoot.MRM.Record.ZZJGDM);
+		
+		SET QYMC = TRIM('"' FROM InputRoot.MRM.Record.QYMC);
+		SET QYMC_YW = TRIM('"' FROM InputRoot.MRM.Record.QYMC_YW);
+		SET QYZCH = TRIM('"' FROM InputRoot.MRM.Record.QYZCH);
+		SET SHBXBH = TRIM('"' FROM InputRoot.MRM.Record.SHBXBH);
+		SET JFNY = TRIM('"' FROM InputRoot.MRM.Record.JFNY);
+		IF InputRoot.MRM.Record.JFJS IS NULL THEN
+			SET JFJS = 0;
+		ELSE
+			SET JFJS = CAST(TRIM('"' FROM InputRoot.MRM.Record.JFJS) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.YJJEHJ IS NULL THEN
+			SET YJJEHJ = 0;
+		ELSE
+			SET YJJEHJ = CAST(TRIM('"' FROM InputRoot.MRM.Record.YJJEHJ) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.DWYJJE IS NULL THEN
+			SET DWYJJE = 0;
+		ELSE
+			SET DWYJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.DWYJJE) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.GRYJJE IS NULL THEN
+			SET GRYJJE = 0;
+		ELSE
+			SET GRYJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.GRYJJE) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.SJJEHJ IS NULL THEN
+			SET SJJEHJ = 0;
+		ELSE
+			SET SJJEHJ = CAST(TRIM('"' FROM InputRoot.MRM.Record.SJJEHJ) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.DWSJJE IS NULL THEN
+			SET DWSJJE = 0;
+		ELSE
+			SET DWSJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.DWSJJE) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.GRSJJE IS NULL THEN
+			SET GRSJJE = 0;
+		ELSE
+			SET GRSJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.GRSJJE) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.BJJEHJ IS NULL THEN
+			SET BJJEHJ = 0;
+		ELSE
+			SET BJJEHJ = CAST(TRIM('"' FROM InputRoot.MRM.Record.BJJEHJ) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.DWBJJE IS NULL THEN
+			SET DWBJJE = 0;
+		ELSE
+			SET DWBJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.DWBJJE) AS DECIMAL);
+		END IF;
+		IF InputRoot.MRM.Record.GRBJJE IS NULL THEN
+			SET GRBJJE = 0;
+		ELSE
+			SET GRBJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.GRBJJE) AS DECIMAL);
+		END IF;	
+		IF InputRoot.MRM.Record.BJZNJ IS NULL THEN
+			SET BJZNJ = 0;
+		ELSE
+			SET BJZNJ = CAST(TRIM('"' FROM InputRoot.MRM.Record.BJZNJ) AS DECIMAL);
+		END IF;	
+		IF InputRoot.MRM.Record.BJLX IS NULL THEN
+			SET BJLX = 0;
+		ELSE
+			SET BJLX = CAST(TRIM('"' FROM InputRoot.MRM.Record.BJLX) AS DECIMAL);
+		END IF;	
+
+		SET JBJGDM  = TRIM('"' FROM InputRoot.MRM.Record.JBJGDM );
+		IF LENGTH(JBJGDM) >6 THEN
+			SET JBJGDM = SUBSTRING(JBJGDM FROM 1 FOR 6);
+		ELSEIF InputRoot.MRM.Record.JBJGDM IS NULL THEN
+			SET JBJGDM = '0';
+		END IF;
+		
+		IF InputRoot.MRM.Record.GZZE IS NULL THEN
+			SET GZZE = 0;
+		ELSE
+			SET GZZE = CAST(TRIM('"' FROM InputRoot.MRM.Record.GZZE) AS DECIMAL);
+		END IF;	
+
+		IF InputRoot.MRM.Record.GRJFJS IS NULL THEN
+			SET GRJFJS = 0;
+		ELSE
+			SET GRJFJS = CAST(TRIM('"' FROM InputRoot.MRM.Record.GRJFJS) AS DECIMAL);
+		END IF;	
+
+		IF InputRoot.MRM.Record.DWYBJJE IS NULL THEN
+			SET DWYBJJE = 0;
+		ELSE
+			SET DWYBJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.DWYBJJE) AS DECIMAL);
+		END IF;	
+		
+		IF InputRoot.MRM.Record.GRYBJJE IS NULL THEN
+			SET GRYBJJE = 0;
+		ELSE
+			SET GRYBJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.GRYBJJE) AS DECIMAL);
+		END IF;	
+		
+		IF InputRoot.MRM.Record.DWSBJJE IS NULL THEN
+			SET DWSBJJE = 0;
+		ELSE
+			SET DWSBJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.DWSBJJE) AS DECIMAL);
+		END IF;
+
+		IF InputRoot.MRM.Record.JHBJJE IS NULL THEN
+			SET JHBJJE = 0;
+		ELSE
+			SET JHBJJE = CAST(TRIM('"' FROM InputRoot.MRM.Record.JHBJJE) AS DECIMAL);
+		END IF;
+		
+		SET GRSBJJE  = 0;
+		SET TSJE   = 0;
+		SET YJJE   = 0;
+		SET HXJE   = 0;
+		SET CONNECTIONFLAG  = '0';
+
+		-- 组织机构代码验证
+		DECLARE isValid Boolean FALSE;
+		DECLARE front CHARACTER;
+		DECLARE checkBit CHARACTER;
+		IF LENGTH(ZZJGDM) = 9 THEN
+			SET front = SUBSTRING(ZZJGDM FROM 1 FOR 8);
+			SET checkBit = SUBSTRING(ZZJGDM FROM 9 FOR 1);
+			CALL checkOrgCode(front, checkBit, isValid);
+		END IF;
+		
+		IF isValid = FALSE THEN
+			SET FailedRecord = FailedRecord + 1;
+			-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	IF ZZJGDM IS NULL THEN
+				SET ZZJGDM = ' ';
+			END IF;
+			IF QYMC IS NULL THEN
+				SET QYMC = ' ';
+			END IF;
+			IF QYMC_YW IS NULL THEN
+				SET QYMC_YW = ' ';
+			END IF;
+			IF QYZCH IS NULL THEN
+				SET QYZCH = ' ';
+			END IF;
+			IF SHBXBH IS NULL THEN
+				SET SHBXBH = ' ';
+			END IF;
+			IF JFNY IS NULL THEN
+				SET JFNY = ' ';
+			END IF;
+			IF JBJGDM IS NULL THEN
+				SET JBJGDM = ' ';
+			END IF;
+
+	    	SET Note = ZZJGDM||
+					   ','||QYMC||
+						','||QYMC_YW||
+						','||QYZCH||
+						','||SHBXBH||
+						','||JFNY||
+						','||CAST(JFJS AS CHARACTER)||
+						','||CAST(YJJEHJ AS CHARACTER)||
+						','||CAST(DWYJJE AS CHARACTER)||
+						','||CAST(GRYJJE AS CHARACTER)||
+						','||CAST(SJJEHJ AS CHARACTER)||
+						','||CAST(DWSJJE AS CHARACTER)||
+						','||CAST(GRSJJE AS CHARACTER)||
+						','||CAST(BJJEHJ AS CHARACTER)||
+						','||CAST(DWBJJE AS CHARACTER)||
+						','||CAST(GRBJJE AS CHARACTER)||
+						','||CAST(BJZNJ AS CHARACTER)||
+						','||CAST(BJLX AS CHARACTER)||
+						','||JBJGDM||
+						','||CAST(GZZE AS CHARACTER)||
+						','||CAST(GRJFJS AS CHARACTER)||
+						','||CAST(DWYBJJE AS CHARACTER)||
+						','||CAST(GRYBJJE AS CHARACTER)||
+						','||CAST(DWSBJJE AS CHARACTER)||
+						','||CAST(JHBJJE AS CHARACTER);
+			INSERT INTO Database.BT2_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'组织机构代码错误',Note);
+
+	    	RETURN FALSE;
+		END IF;
+		
+		-- 去空格
+	    SET QYMC = TRIM(QYMC);
+	    
+	    -- 重复数据
+	    SET Environment.Variables.Record[] = (SELECT T.QYMC FROM Database.BT2 AS T WHERE T.ZZJGDM = ZZJGDM);
+	    
+	    IF CARDINALITY(Environment.Variables.Record[])>0 AND QYMC <> Environment.Variables.Record[1].QYMC THEN
+	    	SET RepeatRecord = RepeatRecord + 1;
+			-- INSERT Err Data
+	    	DECLARE Note CHARACTER;
+	    	IF ZZJGDM IS NULL THEN
+				SET ZZJGDM = ' ';
+			END IF;
+			IF QYMC IS NULL THEN
+				SET QYMC = ' ';
+			END IF;
+			IF QYMC_YW IS NULL THEN
+				SET QYMC_YW = ' ';
+			END IF;
+			IF QYZCH IS NULL THEN
+				SET QYZCH = ' ';
+			END IF;
+			IF SHBXBH IS NULL THEN
+				SET SHBXBH = ' ';
+			END IF;
+			IF JFNY IS NULL THEN
+				SET JFNY = ' ';
+			END IF;
+			IF JBJGDM IS NULL THEN
+				SET JBJGDM = ' ';
+			END IF;
+
+	    	SET Note = ZZJGDM||
+					   ','||QYMC||
+						','||QYMC_YW||
+						','||QYZCH||
+						','||SHBXBH||
+						','||JFNY||
+						','||CAST(JFJS AS CHARACTER)||
+						','||CAST(YJJEHJ AS CHARACTER)||
+						','||CAST(DWYJJE AS CHARACTER)||
+						','||CAST(GRYJJE AS CHARACTER)||
+						','||CAST(SJJEHJ AS CHARACTER)||
+						','||CAST(DWSJJE AS CHARACTER)||
+						','||CAST(GRSJJE AS CHARACTER)||
+						','||CAST(BJJEHJ AS CHARACTER)||
+						','||CAST(DWBJJE AS CHARACTER)||
+						','||CAST(GRBJJE AS CHARACTER)||
+						','||CAST(BJZNJ AS CHARACTER)||
+						','||CAST(BJLX AS CHARACTER)||
+						','||JBJGDM||
+						','||CAST(GZZE AS CHARACTER)||
+						','||CAST(GRJFJS AS CHARACTER)||
+						','||CAST(DWYBJJE AS CHARACTER)||
+						','||CAST(GRYBJJE AS CHARACTER)||
+						','||CAST(DWSBJJE AS CHARACTER)||
+						','||CAST(JHBJJE AS CHARACTER);
+			INSERT INTO Database.BT2_ERR (InFileName,InFileNo,ErrorType,ErrorNote) 
+			       VALUES (InputLocalEnvironment.File.Name,TotalRecord,'数据一致性错误',Note);
+
+	    	RETURN FALSE;
+	    END IF;
+	    
+	    --INSERT DATA
+	    INSERT INTO Database.BT2 (createtime,ZZJGDM,QYMC,QYMC_YW,QYZCH,SHBXBH,JFNY,JFJS,YJJEHJ,DWYJJE,GRYJJE,SJJEHJ,
+	         		 DWSJJE,GRSJJE,BJJEHJ,DWBJJE,GRBJJE,BJZNJ,BJLX,JBJGDM,GZZE,GRJFJS,DWYBJJE,GRYBJJE,DWSBJJE,JHBJJE,GRSBJJE,TSJE,
+	         		 YJJE,HXJE,CONNECTIONFLAG) 
+	         VALUES (createtime,ZZJGDM,QYMC,QYMC_YW,QYZCH,SHBXBH,JFNY,JFJS,YJJEHJ,DWYJJE,GRYJJE,SJJEHJ,
+	         		 DWSJJE,GRSJJE,BJJEHJ,DWBJJE,GRBJJE,BJZNJ,BJLX,JBJGDM,GZZE,GRJFJS,DWYBJJE,GRYBJJE,DWSBJJE,JHBJJE,GRSBJJE,TSJE,
+	         		 YJJE,HXJE,CONNECTIONFLAG);
+		
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+CREATE PROCEDURE checkOrgCode (
+  		IN orgCode CHARACTER,
+  		IN verifyCode Char,
+		OUT isValid  Boolean)
+BEGIN
+    	SET Environment.WeightFactors[1] = 3;
+    	SET Environment.WeightFactors[2] = 7;
+    	SET Environment.WeightFactors[3] = 9;
+    	SET Environment.WeightFactors[4] = 10;
+    	SET Environment.WeightFactors[5] = 5;
+    	SET Environment.WeightFactors[6] = 8;
+    	SET Environment.WeightFactors[7] = 4;
+    	SET Environment.WeightFactors[8] = 2;
+
+    	DECLARE I INTEGER 1;
+		DECLARE J INTEGER 8;
+		
+		DECLARE sum INTEGER 0;
+		DECLARE weight INTEGER;
+		DECLARE codeNum INTEGER;
+		
+		WHILE I <= J DO
+			
+			CALL getNumber(SUBSTRING(orgCode FROM I FOR 1), codeNum);
+			SET weight = Environment.WeightFactors[I];
+			SET sum = sum + (codeNum * weight);
+			
+			SET I = I + 1;
+
+		END WHILE;
+		
+		DECLARE modnum INTEGER;
+		SET modnum = 11 - MOD(sum, 11);
+		
+		IF modnum = 10 AND verifyCode = 'X' THEN
+			SET isValid = true;
+		ELSEIF modnum = 11 AND verifyCode = '0' THEN
+			SET isValid = true;
+		ELSEIF verifyCode = CAST(modnum AS CHAR) THEN
+			SET isValid = true;
+		ELSE 
+			SET isValid = false;
+		END IF;		
+		
+END;
+	
+CREATE PROCEDURE getNumber(IN chaa CHAR, OUT num INTEGER)
+BEGIN
+	SET num = 
+   			CASE chaa
+	      		WHEN '0' THEN 0 
+	   			WHEN '1' THEN 1
+				WHEN '2' THEN 2
+				WHEN '3' THEN 3
+				WHEN '4' THEN 4
+				WHEN '5' THEN 5
+				WHEN '6' THEN 6
+				WHEN '7' THEN 7
+				WHEN '8' THEN 8
+				WHEN '9' THEN 9
+				WHEN 'A' THEN 10
+				WHEN 'B' THEN 11
+				WHEN 'C' THEN 12				
+				WHEN 'D' THEN 13
+				WHEN 'E' THEN 14
+				WHEN 'F' THEN 15
+				WHEN 'G' THEN 16
+				WHEN 'H' THEN 17
+				WHEN 'I' THEN 18
+				WHEN 'J' THEN 19				
+				WHEN 'K' THEN 20
+				WHEN 'L' THEN 21
+				WHEN 'M' THEN 22
+				WHEN 'N' THEN 23
+				WHEN 'O' THEN 24
+				WHEN 'P' THEN 25
+				WHEN 'Q' THEN 26
+				WHEN 'R' THEN 27				
+				WHEN 'S' THEN 28
+				WHEN 'T' THEN 29
+				WHEN 'U' THEN 30
+				WHEN 'V' THEN 31
+				WHEN 'W' THEN 32
+				WHEN 'X' THEN 33
+				WHEN 'Y' THEN 34				
+				WHEN 'Z' THEN 35
+			ELSE 0
+   			END;
+END;
+
+END MODULE;
+
+
+CREATE COMPUTE MODULE TestFlow_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		SET Environment.Variables.Count[] = Passthru('select count(id) AS CORRECT from BT2');
+		SET Environment.Variables.ErrorCount[] = Passthru('select count(id) AS ERROR from BT2_ERR');
+		SET FailedRecord = CAST(Environment.Variables.ErrorCount[].ERROR AS INTEGER);
+		SET TotalRecord = CAST(Environment.Variables.Count[].CORRECT AS INTEGER) + FailedRecord;
+		
+		-- Write End Log
+		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+		SET OutputLocalEnvironment.Variables.TYPE = '信息';
+		SET OutputLocalEnvironment.Variables.PROCESS = '测试流程';
+		SET OutputLocalEnvironment.Variables.FILE = InputLocalEnvironment.File.Name;
+		SET OutputLocalEnvironment.Variables.AUDIT = '总数:'||CAST(TotalRecord AS CHARACTER)||
+													' 正确：'||CAST(TotalRecord - FailedRecord - RepeatRecord AS CHARACTER)||
+													' 错误：'||CAST(FailedRecord AS CHARACTER)||
+													' 重复：'||CAST(RepeatRecord AS CHARACTER);
+		SET OutputLocalEnvironment.Variables.NOTES = '文件读取结束';
+		PROPAGATE;
+		
+		SET TotalRecord = 0;
+		SET FailedRecord = 0;
+		SET RepeatRecord = 0;
+		SET IsFirstData = TRUE;
+		
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

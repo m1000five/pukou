@@ -1,0 +1,127 @@
+DECLARE LineNumCommon SHARED INTEGER 0;
+DECLARE SwatchLineCount SHARED INTEGER 10;
+DECLARE XMLSwatchCommon SHARED CHARACTER ;
+DECLARE StandSplitter SHARED CHARACTER '||';
+
+CREATE COMPUTE MODULE ReadTxtSwatchCommon_ComputeLine
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		-- 记录数统计
+		SET LineNumCommon = LineNumCommon + 1;
+		 
+		-- 是否已经取完
+		IF LineNumCommon > SwatchLineCount THEN
+			RETURN FALSE;
+		END IF;
+		
+		
+		
+		DECLARE str CHARACTER;
+		--得到读取得一条记录,第一个字段
+		SET str = CAST(InputRoot.BLOB.BLOB as CHARACTER CCSID 1386);
+		
+		IF LineNumCommon = 0 THEN
+			SET XMLSwatchCommon = '<ROOT>';
+		END IF;
+		
+		-- 判定是否包含规定的定界符号,如果含有||，则为此次为地税标准数据
+		-- 否则为非标准数据
+--		IF CONTAINS(str,'||') = FALSE THEN
+--			RETURN FALSE;
+--		END IF;
+		
+		--按照定界符循环处理读取记录
+		DECLARE i INTEGER 1;
+		DECLARE col CHARACTER;
+		DECLARE XMLLine CHARACTER;
+		SET XMLLine = '<ROWSET>';
+		WHILE CONTAINS(str, StandSplitter) DO
+			SET col = SUBSTRING(str BEFORE StandSplitter);
+			SET XMLLine = XMLLine||'<COL>'|| col ||'</COL>';			
+			SET str = SUBSTRING(str AFTER StandSplitter);
+			SET i = i + 1;
+		END WHILE;
+		SET XMLLine = XMLLine || '<COL>'|| str ||'</COL></ROWSET>';
+		
+		--得到记录的总列数
+		DECLARE colNum INTEGER;
+		SET colNum = i;
+		
+		IF LineNumCommon=1 THEN 
+			SET XMLSwatchCommon='<ROOT>' || XMLLine;
+			RETURN FALSE;
+		END IF;
+		
+		IF LineNumCommon > 1 AND LineNumCommon < SwatchLineCount THEN 
+			SET XMLSwatchCommon=XMLSwatchCommon || XMLLine;
+			RETURN FALSE;                                                                                                                                                                                           
+		END IF;
+		
+		IF LineNumCommon = SwatchLineCount THEN
+			SET XMLSwatchCommon=XMLSwatchCommon || XMLLine || '</ROOT>';
+	        DECLARE updateSql CHARACTER; 
+	        set updateSql = 'UPDATE  t_filepreview SET  xml_target = ? WHERE  UPLOADNAME = ?';
+			passthru updateSql to Database.orcl values(XMLSwatchCommon , 
+				 InputLocalEnvironment.File.Name );				   
+			RETURN TRUE;
+		END IF;
+		
+
+				
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE ReadTxtSwatchCommon_ComputeEOF
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		 		
+		IF LineNumCommon < SwatchLineCount THEN 
+			SET	XMLSwatchCommon = XMLSwatchCommon||'</ROOT>';
+			DECLARE updateSql CHARACTER;
+	        set updateSql = 'UPDATE   t_filepreview SET  xml_target = ? WHERE  UPLOADNAME = ?';
+			passthru updateSql to Database.orcl values(XMLSwatchCommon , 
+				 InputLocalEnvironment.File.Name );				   
+		END IF;
+		
+		-- reset share var
+		SET LineNumCommon = 0;
+		SET XMLSwatchCommon = '';
+						
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

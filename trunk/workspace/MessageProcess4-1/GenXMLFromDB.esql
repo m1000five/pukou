@@ -1,0 +1,139 @@
+
+
+CREATE COMPUTE MODULE GenXMLFromDB_QuChong_Genxml
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		CALL CopyMessageHeaders();
+		--CALL CopyEntireMessage();
+		
+		-- 按照 ZZJGDM作为判断依据去除重复记录
+		DECLARE zzjgdm_row ROW;
+		DECLARE at1_row ROW;
+		DECLARE dataNum_row ROW;
+		DECLARE zzjgdm_sql CHARACTER;
+		DECLARE at1_sql CHARACTER;
+		DECLARE dataNum_sql CHARACTER;
+		DECLARE dataNum INTEGER;
+		DECLARE zzjgdm CHARACTER;
+		DECLARE zzjgdm_rownum INTEGER;
+		DECLARE at1_rownum INTEGER;
+		DECLARE i INTEGER 1;
+		SET dataNum_sql = 'select count(*) as num  from dbo.at1';
+		SET zzjgdm_sql = 'select distinct zzjgdm from dbo.at1';
+		-- 按照ID 流水号进行排序
+		SET at1_sql = 'select *  from dbo.at1 where zzjgdm=? order by id desc';
+		
+		SET dataNum_row.row[] = passthru(dataNum_sql to Database.db_A);
+		SET dataNum = dataNum_row.row[1].num;
+		
+		-- 查询出有几个组织机构代码
+		SET zzjgdm_row.row[] = passthru(zzjgdm_sql to Database.db_A);
+		SET zzjgdm_rownum = CARDINALITY(zzjgdm_row.row[]);
+		
+		if zzjgdm_rownum = 0  then 
+			throw user exception message 2951 values('从dbo.at1表中没有查询出任何的组织机构代码信息！');
+		end if;
+		SET OutputRoot.XMLNSC.root.head.from='部门A前置';
+		SET OutputRoot.XMLNSC.root.head.table='采集表AT1';
+		WHILE i <=zzjgdm_rownum  DO
+			
+			SET zzjgdm = zzjgdm_row.row[i].zzjgdm;
+			-- 获取 此zzjgdm 对应的信息
+			SET at1_row.row[] = passthru(at1_sql to Database.db_A values(zzjgdm));
+			SET at1_rownum = CARDINALITY(at1_row.row[]);
+			
+			if at1_rownum = 0  then 
+				throw user exception message 2951 values('从dbo.at1表中没有查询出组织机构代码对应的详细信息！');-- 这种情况基本上不会发生
+			end if;
+			
+			SET OutputRoot.XMLNSC.root.rowset.row[i].(XMLNSC.Attribute)num = i;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].id = at1_row.row[1].id;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].infilename = at1_row.row[1].InFileName;--infilename;--
+			SET OutputRoot.XMLNSC.root.rowset.row[i].infileno = at1_row.row[1].InFileNo ;--infileno;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].zzjgdm = at1_row.row[1].zzjgdm;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].unitname = at1_row.row[1].UnitName ;--unitname;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].starttime = at1_row.row[1].StartTime ;--starttime;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].endtime = at1_row.row[1].EndTime ;--endtime;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].cash = at1_row.row[1].Cash ;--cash;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].peoplename = at1_row.row[1].PeopleName ;--peoplename;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].certype = at1_row.row[1].CerType ;--certype;
+			SET OutputRoot.XMLNSC.root.rowset.row[i].outxmlfilename = at1_row.row[1].OutXMLFileName ;--outxmlfilename;
+			SET i = i+1;
+			--SET 
+		END WHILE;
+		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+		SET OutputLocalEnvironment.Variables.TYPE = '信息';
+		SET OutputLocalEnvironment.Variables.PROCESS = 'AT1表数据去重';
+		SET OutputLocalEnvironment.Variables.FILE = 'c:\a2c.xml';
+		SET OutputLocalEnvironment.Variables.AUDIT = '总共记录数目:'||CAST(dataNum AS CHARACTER)||',去重后的记录数:'||CAST(zzjgdm_rownum AS CHARACTER);
+		SET OutputLocalEnvironment.Variables.NOTES = '去重成功';
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE GenXMLFromDB_TrigerFTE
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL CopyMessageHeaders();
+		SET OutputRoot.XMLNSC.root.message = '触发A节点上的FTE进行传输和B节点上的FTE进行传输';
+		PROPAGATE TO TERMINAL 'out';
+		PROPAGATE TO TERMINAL 'out1';
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+/*
+CREATE COMPUTE MODULE GenXMLFromDB_QuChong_Genxml
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+*/
