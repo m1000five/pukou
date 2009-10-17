@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configmgr crlNameList="" domainName="WBRK61_DEFAULT_CONFIGURATION_MANAGER" host="localhost" listenerPort="2414" queueManager="WBRK61_DEFAULT_QUEUE_MANAGER" securityExit="" securityExitJar="" sslCipherSuite="NONE" sslDistinguishedNames="" sslKeyStore="" sslTrustStore="" svrconn="SYSTEM.BKR.CONFIG"/>

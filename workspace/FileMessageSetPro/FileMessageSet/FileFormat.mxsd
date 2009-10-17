@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:complexType name="FileType">
+    <xsd:annotation>
+      <xsd:appinfo source="WMQI_APPINFO">
+        <tdsStructRep dataElementSeparation="AllElementsDelimited" delimiter="&lt;CR&gt;&lt;LF&gt;" groupIndicator="" groupTerminator="" messageSetDefaultRep="Text1"/>
+      </xsd:appinfo>
+    </xsd:annotation>
+    <xsd:sequence maxOccurs="unbounded">
+      <xsd:element maxOccurs="unbounded" name="Record" type="RecordType"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="File" type="FileType">
+    <xsd:annotation>
+      <xsd:appinfo source="WMQI_APPINFO">
+        <MRMessage messageDefinition="/0/File;XSDElementDeclaration$MRObject"/>
+      </xsd:appinfo>
+    </xsd:annotation>
+  </xsd:element>
+    <xsd:complexType name="RecordType">
+    <xsd:annotation>
+      <xsd:appinfo source="WMQI_APPINFO">
+        <tdsStructRep dataElementSeparation="AllElementsDelimited" delimiter="," groupTerminator="&lt;CR&gt;&lt;LF&gt;" messageSetDefaultRep="Text1"/>
+      </xsd:appinfo>
+    </xsd:annotation>
+    <xsd:sequence maxOccurs="unbounded">
+      <xsd:element minOccurs="0" name="ZZJGDM" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="QYMC" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="KSRQ" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="JZRQ" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="ZCZJ" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="FDDBR" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="ZJLX" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+    <xsd:complexType name="TestFileType">
+    <xsd:annotation>
+      <xsd:appinfo source="WMQI_APPINFO">
+        <tdsStructRep dataElementSeparation="AllElementsDelimited" delimiter="&lt;CR&gt;&lt;LF&gt;" messageSetDefaultRep="Text1"/>
+      </xsd:appinfo>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" name="Record" type="TestRecordType"/>
+    </xsd:sequence>
+  </xsd:complexType>
+    <xsd:element name="TestFile" type="TestFileType">
+    <xsd:annotation>
+      <xsd:appinfo source="WMQI_APPINFO">
+        <MRMessage messageDefinition="/0/TestFile;XSDElementDeclaration=1$MRObject"/>
+      </xsd:appinfo>
+    </xsd:annotation>
+  </xsd:element>
+    <xsd:complexType name="TestRecordType">
+    <xsd:annotation>
+      <xsd:appinfo source="WMQI_APPINFO">
+        <tdsStructRep dataElementSeparation="AllElementsDelimited" delimiter=";" groupTerminator="&lt;CR&gt;&lt;LF&gt;" messageSetDefaultRep="Text1"/>
+      </xsd:appinfo>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="ZZJGDM" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="QYMC" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="QYMC_YW" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="QYZCH" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="SHBXBH" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="JFNY" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="JFJS" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="YJJEHJ" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="DWYJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="GRYJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="SJJEHJ" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="DWSJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="GRSJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="BJJEHJ" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="DWBJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="GRBJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="BJZNJ" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="BJLX" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="JBJGDM" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="GZZE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="GRJFJS" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="DWYBJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="GRYBJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="DWSBJJE" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="JHBJJE" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+</xsd:schema>

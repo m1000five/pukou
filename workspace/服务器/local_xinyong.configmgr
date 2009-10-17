@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configmgr crlNameList="" domainName="XINYONG_CFG" host="localhost" listenerPort="1414" queueManager="QM_XINYONG" securityExit="" securityExitJar="" sslCipherSuite="NONE" sslDistinguishedNames="" sslKeyStore="" sslTrustStore="" svrconn="SYSTEM.BKR.CONFIG"/>

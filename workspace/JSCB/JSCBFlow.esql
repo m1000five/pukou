@@ -1,0 +1,92 @@
+
+
+CREATE COMPUTE MODULE JSCBFlow_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		DECLARE i INTEGER 1; 
+		DECLARE j INTEGER CARDINALITY(InputRoot.XMLNSC.AT1.Record[]); 
+		WHILE i <= j DO 
+			
+			DECLARE sourceDate CHARACTER;
+			DECLARE KSRQ CHARACTER;
+		    DECLARE JZRQ CHARACTER;
+	        DECLARE KSRQCheck DATE;
+		    DECLARE JZRQCheck DATE;
+	        DECLARE pattern CHARACTER 'yyyy-MM-dd HHmmss';	
+			SET KSRQ = InputRoot.XMLNSC.AT1.Record[i].StartTime;
+			SET KSRQ = SUBSTRING(KSRQ FROM 1 FOR 10);
+			-- SET sourceDate = CAST(KSRQ AS CHARACTER FORMAT 'yyyy-MM-dd HHmmss');
+			-- SET sourceDate = SUBSTRING(sourceDate FROM 1 FOR 17); 
+			-- SET sourceDate = SUBSTRING(sourceDate BEFORE ' ');
+			-- SET KSRQ = CAST(KSRQ AS DATE FORMAT pattern);	  
+			SET JZRQ = InputRoot.XMLNSC.AT1.Record[i].EndTime;
+			SET JZRQ = SUBSTRING(JZRQ FROM 1 FOR 10);
+			-- SET sourceDate = CAST(JZRQ AS CHARACTER FORMAT 'yyyy-MM-dd');
+			-- SET sourceDate = SUBSTRING(sourceDate FROM 1 FOR 17);
+			-- SET sourceDate = SUBSTRING(sourceDate BEFORE ' ');
+			-- SET JZRQ = CAST(sourceDate AS DATE FORMAT pattern);
+			    
+			INSERT INTO Database.BT1(zzjgdm, UnitName, StartTime, EndTime, Cash, PeopleName, CerType, OutXMLFileName) VALUES
+				(InputRoot.XMLNSC.AT1.Record[i].zzjgdm,
+				InputRoot.XMLNSC.AT1.Record[i].UnitName,
+				KSRQ,
+				JZRQ,
+				InputRoot.XMLNSC.AT1.Record[i].Cash,
+				InputRoot.XMLNSC.AT1.Record[i].PeopleName,
+				InputRoot.XMLNSC.AT1.Record[i].CerType,
+				InputRoot.XMLNSC.AT1.Record[i].OutXMLFileName
+				); 
+				
+			SET i = i + 1; 
+		END WHILE;		
+	
+	SET OutputRoot = InputRoot;
+						
+			SET Environment.TIME1 = CURRENT_TIMESTAMP;
+			SET Environment.TYPE1 = '信息';
+			SET Environment.PROCESS1 = '流程1';
+			SET Environment.FILE1 = '';
+			SET Environment.AUDIT1 = '';
+			SET Environment.NOTES1 = '文件写入开始';	
+			SET Environment.TIMEN = CURRENT_TIMESTAMP;
+			SET Environment.TYPEN = '信息';
+			SET Environment.PROCESSN = '流程1';
+			SET Environment.FILEN = '';
+			SET Environment.AUDITN = '总数:'||CAST(0 AS CHARACTER)||
+														' 正确：'||CAST(0 AS CHARACTER)||
+														' 错误：'||CAST(0 AS CHARACTER);
+			SET Environment.NOTESN = '文件写入结束';		
+		
+	    IF j <> 0 THEN
+	    	SET Environment.FILE1 = OutputRoot.XMLNSC.AT1.Record[1].InFileName;
+			SET Environment.TIMEN = CURRENT_TIMESTAMP;
+			SET Environment.TYPEN = '信息';
+			SET Environment.PROCESSN = '流程1';
+			SET Environment.FILEN = OutputRoot.XMLNSC.AT1.Record[j].InFileName;
+			SET Environment.AUDITN = '总数:'||CAST(j AS CHARACTER)||
+														' 正确：'||CAST(j AS CHARACTER)||
+														' 错误：'||CAST(0 AS CHARACTER);
+			SET Environment.NOTESN = '文件读取结束';	
+			
+	    END IF;	
+	
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

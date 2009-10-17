@@ -1,0 +1,121 @@
+Declare LineNum SHARED INTEGER 0;
+Declare StrSwatch SHARED CHARACTER ;
+
+CREATE COMPUTE MODULE TXTFlow_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN 
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		SET LineNum = LineNum + 1;
+		-- GET RECORD
+		DECLARE ZZJGDM CHARACTER;
+		DECLARE QYMC CHARACTER;
+		DECLARE KSRQ CHARACTER;
+		DECLARE JZRQ CHARACTER;
+		DECLARE ZCZJ CHARACTER;
+		DECLARE FDDBR CHARACTER;
+		DECLARE ZJLX CHARACTER;
+
+		-- SET RECORD
+		SET ZZJGDM = TRIM('"' FROM InputRoot.MRM.Record.ZZJGDM);
+		SET QYMC = TRIM('"' FROM InputRoot.MRM.Record.QYMC);
+		SET KSRQ = TRIM('"' FROM InputRoot.MRM.Record.KSRQ);
+		SET JZRQ = TRIM('"' FROM InputRoot.MRM.Record.JZRQ);
+		SET ZCZJ = TRIM('"' FROM InputRoot.MRM.Record.ZCZJ);
+		SET FDDBR = TRIM('"' FROM InputRoot.MRM.Record.FDDBR);
+		SET ZJLX = TRIM('"' FROM InputRoot.MRM.Record.ZJLX);
+
+		IF LineNum=1 THEN 
+			SET StrSwatch='<ROOT>';
+			SET StrSwatch=StrSwatch || '<ROWSET> <COL>' || ZZJGDM || '</COL><COL>' 
+			|| QYMC || '</COL><COL>'|| KSRQ || '</COL><COL>'||JZRQ||'</COL><COL>'||ZCZJ
+			||'</COL><COL>'||FDDBR||'</COL><COL>'||ZJLX||'</COL></ROWSET>';
+			RETURN FALSE;
+		END IF;
+		
+		IF LineNum>1 AND LineNum<20 THEN 
+			SET StrSwatch=StrSwatch || '<ROWSET> <COL>' || ZZJGDM || '</COL><COL>' 
+			|| QYMC || '</COL><COL>'|| KSRQ || '</COL><COL>'||JZRQ||'</COL><COL>'||ZCZJ
+			||'</COL><COL>'||FDDBR||'</COL><COL>'||ZJLX||'</COL></ROWSET>';
+			RETURN FALSE;                                                                                                                                                                                           
+		END IF;
+		
+		IF LineNum=20 THEN
+			SET StrSwatch=StrSwatch || '<ROWSET> <COL>' || ZZJGDM || '</COL><COL>' 
+			|| QYMC || '</COL><COL>'|| KSRQ || '</COL><COL>'||JZRQ||'</COL><COL>'||ZCZJ
+			||'</COL><COL>'||FDDBR||'</COL><COL>'||ZJLX||'</COL></ROWSET>';
+			SET StrSwatch=StrSwatch || '</ROOT>';
+			
+--			INSERT INTO Database.t_filepreview (FILEID,XML_CONTENT) 
+--			       VALUES (InputLocalEnvironment.File.Name,StrSwatch);
+				   
+	        DECLARE updateSql CHARACTER; 
+	        
+	        set updateSql = 'UPDATE  t_filepreview SET  xml_target = ? WHERE  UPLOADNAME = ?';
+	        
+			passthru updateSql to Database.orcl values(StrSwatch , 
+				substring(InputLocalEnvironment.File.Name BEFORE '.'));				   
+			
+			RETURN TRUE;
+		END IF;
+
+	END;
+
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE ReadTxtSwatch_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		IF LineNum < 20 THEN 
+			SET	StrSwatch = StrSwatch||'</ROOT>';
+			--插入数据库操作
+--			INSERT INTO Database.t_filepreview (FILEID,XML_CONTENT) 
+--			       VALUES (InputLocalEnvironment.File.Name,StrSwatch);
+
+			DECLARE updateSql CHARACTER;
+			
+	        set updateSql = 'UPDATE   t_filepreview SET  xml_target = ? WHERE  UPLOADNAME = ?';
+	        
+			passthru updateSql to Database.orcl values(StrSwatch , 
+				substring(InputLocalEnvironment.File.Name BEFORE '.'));				   
+		END IF;
+		
+		-- reset share var
+		SET LineNum = 0;
+		SET StrSwatch='';
+				
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

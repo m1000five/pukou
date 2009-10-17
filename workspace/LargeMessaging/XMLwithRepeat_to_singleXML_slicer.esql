@@ -1,0 +1,236 @@
+
+/* ===========================
+    Schema level declarations 
+   =========================== */
+
+-- ====================================
+-- The COMPLETION OUTPUT message format	
+-- ====================================
+			
+--   SlicingReport	
+--     Counts
+--       Surplus|Deficit  (optional)
+--       Declared
+--       Actual
+--     Completed
+	
+DECLARE COMPLETION_ROOT CONSTANT CHARACTER 'SlicingReport';
+
+
+/* ===========================
+    Module level declarations 
+   =========================== */
+	
+CREATE COMPUTE MODULE XMLwithRepeat_to_singleXML_slicer_Compute
+		
+	-- ========================
+	-- The INPUT message format
+	-- ========================
+	
+	--   SaleEnvelope	
+	--     Header	
+	--       SaleListCount	
+	--     SaleList  (n)
+	--       Invoice  (2)
+	--         Initial  (2)
+	--         Surname
+	--         Item  (2)
+	--           Code  (3)
+	--           Description  
+	--           Category
+	--           Price
+	--           Quantity
+	--         Balance
+	--       Currency
+	--     Trailer
+	--       CompletionTime
+	
+	DECLARE ROOT_LEVEL CONSTANT CHARACTER 'SaleEnvelope';	
+	DECLARE HEADER CONSTANT CHARACTER 'Header';
+	DECLARE REPEATING_ELEMENT_COUNT CONSTANT CHARACTER 'SaleListCount';
+	DECLARE REPEATING_ELEMENT CONSTANT CHARACTER 'SaleList';
+		
+	-- Therefore, the repeating item which will be being processed is the 'SaleList' element.
+	-- Elements within SafeList will not be referenced *specifically* by this code (but they will 
+	-- be parsed and hence memory will be claimed to store information about the internal elements ).
+			
+	-- Declare module level variables ("global" to this module)
+	DECLARE intNumberOfSaleListsDeclared INTEGER 0;
+	DECLARE intNumberOfSaleListsFound INTEGER 0;
+		
+	/* 
+	   ===================================
+	   Main function to control processing
+	   ===================================
+	 */
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL ProcessLargeMessageToProduceIndividualMessages();		
+		CALL ProduceProcessingCompleteNotification();
+	END;
+
+
+    /* 
+       ============================================================================================
+         > Declare variables
+         > Find first instance of the element to process
+         > For each instance found
+           1> Release memory used to store information about the previous instance (if appropriate)
+           2> Call a procedure to produce a single message the current instance
+           3> Look for a following instance         
+       ============================================================================================
+     */
+	CREATE PROCEDURE ProcessLargeMessageToProduceIndividualMessages() BEGIN
+		
+		-- Creat a (local to this node) variable to hold a mutable tree...
+		DECLARE rowCachedInputXML ROW;
+		-- ... and create a suitable parser (DOMAIN) to process the incoming message
+		/* As both the incoming message AND the new parser are XMLNSC no translation is required
+		   and therefore the XML message is NOT fully parsed */
+		CREATE FIRSTCHILD OF rowCachedInputXML DOMAIN ('XMLNSC') NAME 'XMLNSC';
+		
+		-- Create a reference variable to be used to traverse the input XML message
+		/* Which will be process via the local variable described above */
+		DECLARE refEnvironmentSaleList REFERENCE TO rowCachedInputXML.XMLNSC;
+				
+		-- Create a mutable tree by copying the INPUT XML to the local parser
+		/* This is to allow data about parsed message elements to be deleted from the message tree 
+		   (which can not happen on the InputRoot as its message tree is immutable) */
+		SET rowCachedInputXML.XMLNSC = InputRoot.XMLNSC;		
+		
+		-- Determine how many SaleList items are expected...
+		IF FIELDNAME( InputBody.{ROOT_LEVEL}.{HEADER}.*[>]) = REPEATING_ELEMENT_COUNT THEN
+			SET intNumberOfSaleListsDeclared = InputBody.{ROOT_LEVEL}.{HEADER}.{REPEATING_ELEMENT_COUNT};
+		ELSE			
+			THROW USER EXCEPTION MESSAGE 2999 VALUES ('LMSmessageFailure', 'No count found!');
+		END IF;			
+		
+		-- Acquire the first SaleList element...
+		MOVE refEnvironmentSaleList FIRSTCHILD NAME ROOT_LEVEL;
+		IF NOT LASTMOVE(refEnvironmentSaleList) THEN
+			THROW USER EXCEPTION MESSAGE 2999 VALUES ('LMSmessageFailure', 'No root element found!');
+		END IF;
+		
+		-- The next line results in the parser attempting to locate the first SaleList structure...
+		MOVE refEnvironmentSaleList FIRSTCHILD NAME REPEATING_ELEMENT;
+		
+		-- Loop around each SaleList item
+		WHILE LASTMOVE(refEnvironmentSaleList) DO
+			-- Increment the count of SaleList items found...
+			SET intNumberOfSaleListsFound = intNumberOfSaleListsFound + 1;
+			
+			-- Are we on the second, or subsequent repeating item?
+			IF intNumberOfSaleListsFound > 1 THEN
+				-- YES, therefore erase the parsed details about the previous item to release memory
+				/* The following line is most significant with respect to memory usage.  Its execution 
+				   results in the last-but-one *repeating* element (SaleList), including subordinate elements, 
+				   of the message tree being deleted allowing the memory used to hold information 
+				   generated during parsing to be reused for further parsing. */
+				DELETE PREVIOUSSIBLING OF refEnvironmentSaleList;
+			END IF;			
+			
+			CALL ProduceIndividualSaleListMessage(refEnvironmentSaleList, intNumberOfSaleListsFound);
+			
+			-- The next line searches for another repeating element...
+			MOVE refEnvironmentSaleList NEXTSIBLING NAME REPEATING_ELEMENT;
+		END WHILE;
+	END;
+
+
+	/*  
+	    ====================================================================
+	    Produce a message consisting of one "slice" of the compound message.
+	    ====================================================================
+	 */
+	CREATE PROCEDURE ProduceIndividualSaleListMessage(IN refEnvironmentSaleList REFERENCE, IN intSaleListNumber INTEGER) BEGIN
+		
+		-- ==================================
+		-- The relevent OUTPUT message format
+		-- ==================================		
+		--   Parent
+		--     Number
+		--     SaleList
+		
+		CALL CopyMessageHeaders();
+		
+		SET OutputRoot.XMLNSC.{ROOT_LEVEL}.Number              = intSaleListNumber;
+		SET OutputRoot.XMLNSC.{ROOT_LEVEL}.{REPEATING_ELEMENT} = refEnvironmentSaleList;
+		
+		-- Generate a new message consisting of one SaleList structure
+		PROPAGATE;
+		
+	END;
+	
+	/*  
+	    =======================================================================================
+	    Write out a message indicating that processing has completed, what was processed and at
+	    what time the main work was finished.
+	    =======================================================================================
+	 */
+	CREATE PROCEDURE ProduceProcessingCompleteNotification() BEGIN
+			
+		CALL CopyMessageHeaders();
+		
+		-- Did we find what we expected?
+		IF intNumberOfSaleListsDeclared <> intNumberOfSaleListsFound THEN
+			
+			-- NO! So indicate the delta...
+			DECLARE strDeltaLabel CHARACTER;
+			DECLARE intDelta INTEGER;
+			
+			IF intNumberOfSaleListsDeclared < intNumberOfSaleListsFound THEN
+				SET strDeltaLabel = 'Surplus';
+				SET intDelta = intNumberOfSaleListsFound - intNumberOfSaleListsDeclared;
+			ELSE
+				SET strDeltaLabel = 'Deficit';				
+				SET intDelta = intNumberOfSaleListsDeclared - intNumberOfSaleListsFound;
+			END IF;
+			
+			-- ...and write to output message.
+			SET OutputRoot.XMLNSC.{COMPLETION_ROOT}.Counts.{strDeltaLabel} = intDelta;
+		END IF;
+		
+		-- Write out the actual figures...
+		SET OutputRoot.XMLNSC.{COMPLETION_ROOT}.Counts.Declared  = intNumberOfSaleListsDeclared;
+		SET OutputRoot.XMLNSC.{COMPLETION_ROOT}.Counts.Actual    = intNumberOfSaleListsFound;
+		
+		-- ...and the time of completion.
+		SET OutputRoot.XMLNSC.{COMPLETION_ROOT}.Completed = CURRENT_TIMESTAMP;		
+	END;
+	
+	
+	-- ==================
+	-- Default procedures
+	-- ==================
+	
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE FILTER MODULE XMLwithRepeat_to_singleXML_slicer_Filter
+	/* 
+	   ==================================================
+	   Routes the completion message to the correct queue
+	   ==================================================
+	 */
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		IF FIELDNAME(Root.XMLNSC.*[<]) = COMPLETION_ROOT THEN
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;			
+		END IF;
+	END;
+
+END MODULE;

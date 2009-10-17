@@ -1,0 +1,72 @@
+
+
+CREATE COMPUTE MODULE DataLoadB2C_LoadDataToDB
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL CopyMessageHeaders();
+		DECLARE recordCount Integer;
+		DECLARE i Integer 1;
+		DECLARE j Integer 1;
+		DECLARE insertSql CHARACTER;
+		DECLARE infilename CHARACTER;
+		DECLARE infileno CHARACTER;
+		DECLARE zzjgdm CHARACTER;
+		DECLARE unitname CHARACTER;
+		DECLARE starttime CHARACTER;
+		DECLARE endtime CHARACTER;
+		DECLARE cash CHARACTER;
+		DECLARE peoplename CHARACTER;
+		DECLARE certype CHARACTER;
+		DECLARE pattern CHARACTER 'yyyy-mm-dd';
+		DECLARE dataNum_row ROW;
+		DECLARE dataNum_sql CHARACTER;
+		DECLARE genidstate CHARACTER 'pocid.nextval';
+		--SET dataNum_sql = 'select count(*) as num  from dpt';
+		--SET dataNum_row.row[] = passthru(dataNum_sql to Database.orac_db);
+		
+		SET recordCount = CARDINALITY(InputRoot.XMLNSC.root.rowset.row[]);
+		
+		WHILE i <=recordCount  DO
+			SET infilename = InputRoot.XMLNSC.root.rowset.row[i].infilename ;
+			SET infileno = InputRoot.XMLNSC.root.rowset.row[i].infileno;
+			SET zzjgdm = InputRoot.XMLNSC.root.rowset.row[i].zzjgdm ;
+			SET unitname = InputRoot.XMLNSC.root.rowset.row[i].unitname ;
+			SET starttime = SUBSTRING(InputRoot.XMLNSC.root.rowset.row[i].starttime FROM 0 FOR 11);
+			SET endtime = SUBSTRING(InputRoot.XMLNSC.root.rowset.row[i].endtime FROM 0 FOR 11);
+			SET cash = InputRoot.XMLNSC.root.rowset.row[i].cash ;
+			SET peoplename = InputRoot.XMLNSC.root.rowset.row[i].peoplename;
+			SET certype = InputRoot.XMLNSC.root.rowset.row[i].certype;
+			SET insertSql = 'insert into dbt1(ID,INFILENAME,INFILENO,ZZJGDM,UNITNAME,STARTTIME,ENDTIME,CASH,CERTYPE,PEOPLENAME) 
+				values('||genidstate||','''||infilename||''','||infileno||','''||zzjgdm||''','''||unitname||''',to_date('''||starttime||''','''|| 
+		                    pattern ||''' ) ,to_date('''||endtime||''','''||pattern||'''),'||cash||','''||certype||''','''||peoplename||''')';
+			
+			SET i = i+1;
+
+			
+			passthru insertSql to Database.orac_db ;
+			
+		END WHILE;
+		
+		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+		SET OutputLocalEnvironment.Variables.TYPE = '信息';
+		SET OutputLocalEnvironment.Variables.PROCESS = 'DBT1表数据装载';
+		SET OutputLocalEnvironment.Variables.FILE = 'c:\dataload\b2c.xml';
+		SET OutputLocalEnvironment.Variables.AUDIT = '总共记录数目:'|| CAST(recordCount AS CHARACTER);
+		SET OutputLocalEnvironment.Variables.NOTES = '数据装载成功';
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

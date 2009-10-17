@@ -1,0 +1,271 @@
+Declare TotalRecord SHARED INTEGER 0;
+Declare StringValue SHARED CHARACTER ;
+
+CREATE COMPUTE MODULE jsxyFlow_Compute
+		CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		SET TotalRecord = TotalRecord + 1;
+		-- GET RECORD
+		DECLARE ZZJGDM CHARACTER;
+		DECLARE QYMC CHARACTER;
+		DECLARE KSRQ CHARACTER;
+		DECLARE JZRQ CHARACTER;
+		DECLARE ZCZJ CHARACTER;
+		DECLARE FDDBR CHARACTER;
+		DECLARE ZJLX CHARACTER;
+		
+		
+		-- SET RECORD
+		SET ZZJGDM = TRIM('"' FROM InputRoot.MRM.Record.ZZJGDM);
+		SET QYMC = TRIM('"' FROM InputRoot.MRM.Record.QYMC);
+		SET KSRQ = TRIM('"' FROM InputRoot.MRM.Record.KSRQ);
+		SET JZRQ = TRIM('"' FROM InputRoot.MRM.Record.JZRQ);
+		SET ZCZJ = TRIM('"' FROM InputRoot.MRM.Record.ZCZJ);
+		SET FDDBR = TRIM('"' FROM InputRoot.MRM.Record.FDDBR);
+		SET ZJLX = TRIM('"' FROM InputRoot.MRM.Record.ZJLX);
+		
+		
+		
+		IF TotalRecord=1 THEN
+			SET StringValue='<ROOT>';
+			SET StringValue=StringValue || '<ROWSET> <ZZJGDM>' || ZZJGDM || '</ZZJGDM><QYMC>' || QYMC || '</QYMC><KSRQ>'|| KSRQ || '</KSRQ><JZRQ>'||JZRQ||'</JZRQ><ZCZJ>'||ZCZJ||'</ZCZJ><FDDBR>'||FDDBR||'</FDDBR><ZJLX>'||ZJLX||'</ZJLX></ROWSET>';
+			RETURN FALSE;
+		END IF;
+		IF TotalRecord>1 AND TotalRecord<20 THEN 
+			SET StringValue=StringValue || '<ROWSET> <ZZJGDM>' || ZZJGDM || '</ZZJGDM><QYMC>' || QYMC || '</QYMC><KSRQ>'|| KSRQ || '</KSRQ><JZRQ>'||JZRQ||'</JZRQ><ZCZJ>'||ZCZJ||'</ZCZJ><FDDBR>'||FDDBR||'</FDDBR><ZJLX>'||ZJLX||'</ZJLX></ROWSET>';
+			RETURN FALSE;
+		END IF;
+		IF TotalRecord=20 THEN
+			SET StringValue=StringValue || '<ROWSET> <ZZJGDM>' || ZZJGDM || '</ZZJGDM><QYMC>' || QYMC || '</QYMC><KSRQ>'|| KSRQ || '</KSRQ><JZRQ>'||JZRQ||'</JZRQ><ZCZJ>'||ZCZJ||'</ZCZJ><FDDBR>'||FDDBR||'</FDDBR><ZJLX>'||ZJLX||'</ZJLX></ROWSET>';
+			SET StringValue=StringValue || '</ROOT>';
+			
+			
+			INSERT INTO Database.t_filepreview (FILEID,XML_CONTENT) 
+			       VALUES (InputLocalEnvironment.File.Name,StringValue);
+			
+			RETURN TRUE;
+		END IF;
+	--	set OutputRoot.XMLNSC.root.rowset.row[TotalRecord].zzjqdm=ZZJGDM;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].(XMLNSC.Attribute)num = i;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].zzjgdm = ZZJGDM;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].qymc = QYMC;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].ksrq = KSRQ;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].jzrq = JZRQ;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].zczj = ZCZJ;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].fddbr = FDDBR;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].zjlx = ZJLX;
+	--	SET OutputRoot.XMLNSC.root.rowset.row[TotalRecord].outxmlfilename = at1_row.row[i].OutXMLFileName;
+		
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+	
+	CREATE PROCEDURE checkOrgCode (
+  		IN orgCode CHARACTER,
+  		IN verifyCode Char,
+		OUT isValid  Boolean)
+BEGIN
+    	SET Environment.WeightFactors[1] = 3;
+    	SET Environment.WeightFactors[2] = 7;
+    	SET Environment.WeightFactors[3] = 9;
+    	SET Environment.WeightFactors[4] = 10;
+    	SET Environment.WeightFactors[5] = 5;
+    	SET Environment.WeightFactors[6] = 8;
+    	SET Environment.WeightFactors[7] = 4;
+    	SET Environment.WeightFactors[8] = 2;
+
+    	DECLARE I INTEGER 1;
+		DECLARE J INTEGER 8;
+		
+		DECLARE sum INTEGER 0;
+		DECLARE weight INTEGER;
+		DECLARE codeNum INTEGER;
+		
+		WHILE I <= J DO
+			
+			CALL getNumber(SUBSTRING(orgCode FROM I FOR 1), codeNum);
+			SET weight = Environment.WeightFactors[I];
+			SET sum = sum + (codeNum * weight);
+			
+			SET I = I + 1;
+
+		END WHILE;
+		
+		DECLARE modnum INTEGER;
+		SET modnum = 11 - MOD(sum, 11);
+		
+		IF modnum = 10 AND verifyCode = 'X' THEN
+			SET isValid = true;
+		ELSEIF modnum = 11 AND verifyCode = '0' THEN
+			SET isValid = true;
+		ELSEIF verifyCode = CAST(modnum AS CHAR) THEN
+			SET isValid = true;
+		ELSE 
+			SET isValid = false;
+		END IF;		
+		
+END;
+	
+CREATE PROCEDURE getNumber(IN chaa CHAR, OUT num INTEGER)
+BEGIN
+	SET num = 
+   			CASE chaa
+	      		WHEN '0' THEN 0 
+	   			WHEN '1' THEN 1
+				WHEN '2' THEN 2
+				WHEN '3' THEN 3
+				WHEN '4' THEN 4
+				WHEN '5' THEN 5
+				WHEN '6' THEN 6
+				WHEN '7' THEN 7
+				WHEN '8' THEN 8
+				WHEN '9' THEN 9
+				WHEN 'A' THEN 10
+				WHEN 'B' THEN 11
+				WHEN 'C' THEN 12				
+				WHEN 'D' THEN 13
+				WHEN 'E' THEN 14
+				WHEN 'F' THEN 15
+				WHEN 'G' THEN 16
+				WHEN 'H' THEN 17
+				WHEN 'I' THEN 18
+				WHEN 'J' THEN 19				
+				WHEN 'K' THEN 20
+				WHEN 'L' THEN 21
+				WHEN 'M' THEN 22
+				WHEN 'N' THEN 23
+				WHEN 'O' THEN 24
+				WHEN 'P' THEN 25
+				WHEN 'Q' THEN 26
+				WHEN 'R' THEN 27				
+				WHEN 'S' THEN 28
+				WHEN 'T' THEN 29
+				WHEN 'U' THEN 30
+				WHEN 'V' THEN 31
+				WHEN 'W' THEN 32
+				WHEN 'X' THEN 33
+				WHEN 'Y' THEN 34				
+				WHEN 'Z' THEN 35
+			ELSE 0
+   			END;
+END;
+END MODULE;
+
+CREATE PROCEDURE ChangeDate(IN SourceDate CHARACTER,OUT isDate BOOLEAN, OUT returnDate DATE)
+BEGIN
+	
+	DECLARE YearStr CHARACTER;
+    DECLARE MonthStr CHARACTER;
+    DECLARE DayStr CHARACTER;
+    DECLARE pattern CHARACTER 'yyyy-MM-dd';
+    
+    SET isDate = true;
+    SET returnDate = CURRENT_DATE;
+    
+    IF CONTAINS(SourceDate, '-') =FALSE AND  CONTAINS(SourceDate, '/') =FALSE AND  CONTAINS(SourceDate, '年') =FALSE THEN
+    	SET isDate = FALSE;
+    	RETURN;
+    END IF;
+    
+	-- Contain '-'
+	IF CONTAINS(SourceDate, '-') THEN
+		SET YearStr = SUBSTRING(SourceDate BEFORE '-');
+        SET MonthStr = SUBSTRING(SUBSTRING(SourceDate AFTER '-') BEFORE '-');
+        SET DayStr = SUBSTRING(SUBSTRING(SourceDate AFTER '-') AFTER '-');
+	END IF;
+	
+	-- Contain '/'
+	IF CONTAINS(SourceDate, '/') THEN
+		SET YearStr = SUBSTRING(SourceDate BEFORE '/');
+        SET MonthStr = SUBSTRING(SUBSTRING(SourceDate AFTER '/') BEFORE '/');
+        SET DayStr = SUBSTRING(SUBSTRING(SourceDate AFTER '/') AFTER '/');
+	END IF;
+	
+	-- Contain '年'
+	IF CONTAINS(SourceDate, '年') THEN
+		SET YearStr = SUBSTRING(SourceDate BEFORE '年');
+        SET MonthStr = SUBSTRING(SUBSTRING(SourceDate AFTER '年') BEFORE '月');
+        SET DayStr = SUBSTRING(SUBSTRING(SourceDate BEFORE '日') AFTER '月');
+	END IF;
+	
+	IF LENGTH(YearStr)<>4 THEN
+        SET isDate = false;
+        RETURN;
+    END IF;
+        	
+    IF LENGTH(MonthStr)<> 1 and LENGTH(MonthStr)<>2 THEN
+       	SET isDate = false;
+       	RETURN;
+    END IF;
+        	
+    IF LENGTH(DayStr)<> 1 and LENGTH(DayStr)<>2 THEN
+        SET isDate = false;
+        RETURN;
+    END IF;
+    
+    IF LENGTH(MonthStr) = 1 THEN
+       	SET MonthStr = '0'||MonthStr;
+    END IF;
+    
+    IF LENGTH(DayStr) = 1 THEN
+       	SET DayStr = '0'||DayStr;
+    END IF;
+        
+    SET SourceDate = YearStr||'-'||MonthStr||'-'||DayStr;
+    SET returnDate = CAST(SourceDate AS DATE FORMAT pattern);
+    RETURN;
+	
+END;
+
+	
+
+CREATE COMPUTE MODULE jsxyFlow_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		IF TotalRecord < 20 THEN 
+			SET	StringValue = StringValue||'</ROOT>';
+			--插入数据库操作
+			INSERT INTO Database.t_filepreview (FILEID,XML_CONTENT) 
+			       VALUES (InputLocalEnvironment.File.Name,StringValue);
+			--插入成功以后 
+			SET TotalRecord =0;
+			SET StringValue='';
+			RETURN TRUE;
+		END IF;
+		
+		SET TotalRecord =0;
+		SET StringValue='';
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

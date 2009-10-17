@@ -1,0 +1,313 @@
+DECLARE COLNUM SHARED INTEGER;
+DECLARE FileName SHARED CHARACTER;
+DECLARE FailedRecords SHARED INTEGER 0;
+DECLARE ExistsCounts SHARED INTEGER 0;
+
+CREATE COMPUTE MODULE XMLInPut_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		 CALL CopyMessageHeaders();
+		 CALL CopyEntireMessage();
+		 
+		 DECLARE readcontent CHARACTER;
+		 DECLARE head CHARACTER;
+		 
+		 SET readcontent = CAST(InputRoot.BLOB.BLOB AS CHARACTER CCSID 1386);
+		 
+		 IF LENGTH(readcontent)<5 THEN
+		 	RETURN FALSE;
+		 END IF;
+		 
+		 --设置头
+		 SET head = SUBSTRING(readcontent FROM 1 FOR 5);
+		 
+		 IF head = '<root' THEN
+		 	SET COLNUM = 0;
+			SET FileName = NULL;
+			-- 计时开始
+			PROPAGATE TO TERMINAL 'out1';
+			RETURN FALSE;
+		 END IF;
+		 
+		 IF head='<head' THEN
+		 	SET FileName = SUBSTRING(readcontent AFTER '<filename>');
+		 	SET FileName = SUBSTRING(FileName BEFORE '</filename>');
+		 END IF;
+		 
+		 IF head ='<row>' THEN 
+		 	SET COLNUM = COLNUM+1;
+		 	PROPAGATE;
+		 END IF;
+		 
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE XMLInPut_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		DECLARE RECID CHARACTER;
+		DECLARE BATCHNUM CHARACTER;
+		DECLARE FILECODE CHARACTER;
+		DECLARE SOURCENAME CHARACTER;
+		DECLARE LINENUM CHARACTER;
+		DECLARE CREATETIME CHARACTER;
+		DECLARE MD5CODE CHARACTER;
+		DECLARE ZZJGDM CHARACTER;
+		DECLARE A1 CHARACTER;
+		DECLARE A2 CHARACTER;
+		DECLARE A3 CHARACTER;
+		DECLARE A4 CHARACTER;
+		DECLARE A5 CHARACTER;
+		DECLARE A6 CHARACTER;
+		DECLARE A7 CHARACTER;
+		DECLARE A8 CHARACTER;
+		DECLARE A9 CHARACTER;
+		DECLARE A10 CHARACTER;
+		
+		SET RECID = TRIM(InputRoot.XMLNSC.row.RECID);
+		SET BATCHNUM = TRIM(InputRoot.XMLNSC.row.BATCHNUM);
+		SET FILECODE = TRIM(InputRoot.XMLNSC.row.FILECODE);
+		SET SOURCENAME = TRIM(InputRoot.XMLNSC.row.SOURCENAME);
+		SET LINENUM = TRIM(InputRoot.XMLNSC.row.LINENUM);
+		SET CREATETIME = TRIM(InputRoot.XMLNSC.row.CREATETIME) ;
+		SET MD5CODE = TRIM(InputRoot.XMLNSC.row.MD5CODE);
+		SET ZZJGDM = TRIM(InputRoot.XMLNSC.row.ZZJGDM);
+		SET A1 = TRIM(InputRoot.XMLNSC.row.QYMC);
+		SET A2 = TRIM(InputRoot.XMLNSC.row.QYZCH);
+		SET A3 = TRIM(InputRoot.XMLNSC.row.NSRSBH);
+		SET A4 = TRIM(InputRoot.XMLNSC.row.HSFSDM);
+		SET A5 = TRIM(InputRoot.XMLNSC.row.HSFSMC);
+		SET A6 = TRIM(InputRoot.XMLNSC.row.ZY);
+		SET A7 = TRIM(InputRoot.XMLNSC.row.JY);
+		SET A8 = TRIM(InputRoot.XMLNSC.row.DJRQ);
+		SET A9 =TRIM(InputRoot.XMLNSC.row.DJJGDM);
+		SET A10 = TRIM(InputRoot.XMLNSC.row.DJJGMC);
+		
+		--去重
+		DECLARE sql CHARACTER;
+		DECLARE data_row ROW;
+		DECLARE count INTEGER;
+		SET sql ='select count(1) num from t_dishui_djxx_tmp where recid=?';
+		SET data_row.row[]= passthru(sql to Database.orcl values(RECID));
+		SET count = data_row.row[1].NUM;
+		--重复的数据
+		IF count <> 0 THEN 
+			SET ExistsCounts = ExistsCounts+1;
+			CALL InsertErrDatas('数据重复',BATCHNUM,FileName,ZZJGDM,
+										A1,A2,A3,A4,A5,A6,A7,
+										A8,A9,A10,' ',CAST(LINENUM AS INTEGER));
+		END IF;
+		
+		IF count=0 THEN			  	
+			DECLARE isValid Boolean FALSE;
+			DECLARE front CHARACTER;
+			DECLARE checkBit CHARACTER;
+			IF LENGTH(ZZJGDM) = 9 THEN
+				SET front = SUBSTRING(ZZJGDM FROM 1 FOR 8);
+				SET checkBit = SUBSTRING(ZZJGDM FROM 9 FOR 1);
+				CALL checkOrgCode(front, checkBit, isValid);
+			END IF;				
+
+			IF isValid = FALSE THEN
+				SET FailedRecords = FailedRecords + 1;
+				--格式错误入疑问数据库表
+				-- INSERT Err Data
+				CALL InsertErrDatas('组织机构代码错误',BATCHNUM,FileName,ZZJGDM,
+								A1,A2,A3,A4,A5,A6,A7,
+								A8,A9,A10,' ',CAST(LINENUM AS INTEGER));				
+			ELSEIF IsDates(A8)=FALSE THEN
+				SET FailedRecord = FailedRecord + 1;
+				--日期错误入疑问数据库表
+				CALL InsertErrDatas('登记日期格式不正确',BATCHNUM,FileName,ZZJGDM,
+								A1,A2,A3,A4,A5,A6,A7,
+								A8,A9,A10,' ',CAST(LINENUM AS INTEGER));
+			END IF;
+		END IF;
+				
+					--所有数据都入原始库表
+				insert into Database.t_dishui_djxx_tmp(RECID,BATCHNUM,FILECODE,SOURCENAME,LINENUM,CREATETIME,MD5CODE,ZZJGDM,QYMC,QYZCH,NSRSBH,HSFSDM,HSFSMC,ZY,JY,DJRQ,DJJGDM,DJJGMC)
+						values(RECID,BATCHNUM,FILECODE,FileName,LINENUM,CREATETIME,MD5CODE,ZZJGDM,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10);
+
+		RETURN FALSE;
+	END;
+	
+	
+	
+	
+CREATE PROCEDURE checkOrgCode (
+	IN orgCode CHARACTER,
+	IN verifyCode Char,
+	OUT isValid Boolean)
+	BEGIN
+		SET Environment.WeightFactors[1] = 3;
+		SET Environment.WeightFactors[2] = 7;
+		SET Environment.WeightFactors[3] = 9;
+		SET Environment.WeightFactors[4] = 10;
+		SET Environment.WeightFactors[5] = 5;
+		SET Environment.WeightFactors[6] = 8;
+		SET Environment.WeightFactors[7] = 4;
+		SET Environment.WeightFactors[8] = 2;
+
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER 8;		
+
+		DECLARE sum INTEGER 0;
+		DECLARE weight INTEGER;
+		DECLARE codeNum INTEGER;		
+
+		WHILE I <= J DO			
+
+			CALL getNumber(SUBSTRING(orgCode FROM I FOR 1), codeNum);
+			SET weight = Environment.WeightFactors[I];
+			SET sum = sum + (codeNum * weight);			
+
+			SET I = I + 1;
+
+		END WHILE;		
+
+		DECLARE modnum INTEGER;
+		SET modnum = 11 - MOD(sum, 11);		
+
+		IF modnum = 10 AND verifyCode = 'X' THEN
+			SET isValid = true;
+		ELSEIF modnum = 11 AND verifyCode = '0' THEN
+			SET isValid = true;
+		ELSEIF verifyCode = CAST(modnum AS CHAR) THEN
+			SET isValid = true;
+		ELSE
+			SET isValid = false;
+		END IF;		
+
+	END;
+
+	CREATE PROCEDURE getNumber(IN chaa CHAR, OUT num INTEGER)
+	BEGIN
+		SET num =
+		CASE chaa
+		WHEN '0' THEN 0
+		WHEN '1' THEN 1
+		WHEN '2' THEN 2
+		WHEN '3' THEN 3
+		WHEN '4' THEN 4
+		WHEN '5' THEN 5
+		WHEN '6' THEN 6
+		WHEN '7' THEN 7
+		WHEN '8' THEN 8
+		WHEN '9' THEN 9
+		WHEN 'A' THEN 10
+		WHEN 'B' THEN 11
+		WHEN 'C' THEN 12
+		WHEN 'D' THEN 13
+		WHEN 'E' THEN 14
+		WHEN 'F' THEN 15
+		WHEN 'G' THEN 16
+		WHEN 'H' THEN 17
+		WHEN 'I' THEN 18
+		WHEN 'J' THEN 19
+		WHEN 'K' THEN 20
+		WHEN 'L' THEN 21
+		WHEN 'M' THEN 22
+		WHEN 'N' THEN 23
+		WHEN 'O' THEN 24
+		WHEN 'P' THEN 25
+		WHEN 'Q' THEN 26
+		WHEN 'R' THEN 27
+		WHEN 'S' THEN 28
+		WHEN 'T' THEN 29
+		WHEN 'U' THEN 30
+		WHEN 'V' THEN 31
+		WHEN 'W' THEN 32
+		WHEN 'X' THEN 33
+		WHEN 'Y' THEN 34
+		WHEN 'Z' THEN 35
+		ELSE 0
+		END;
+	END;
+	
+	
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+--日期格式校验的正则表达示
+CREATE PROCEDURE IsNums(IN P1 CHARACTER)
+ RETURNS BOOLEAN
+ LANGUAGE JAVA 
+ EXTERNAL NAME "com.ibm.www.Common.IsNum";
+ 
+ CREATE PROCEDURE IsDates(IN P1 CHARACTER)
+ RETURNS BOOLEAN
+ LANGUAGE JAVA 
+ EXTERNAL NAME "com.ibm.www.Common.IsDate";
+ 
+ 
+ CREATE PROCEDURE InsertErrDatas( IN reason CHARACTER, 
+ 								IN BATCHNUM CHARACTER,
+ 								IN SOURCENAME CHARACTER,
+								IN ZZJGDM CHARACTER,
+								IN QYMC CHARACTER,
+								IN QYZCH CHARACTER, 
+								IN NSRSBH CHARACTER, 
+								IN HSFSDM CHARACTER, 
+								IN HSFSMC CHARACTER, 
+								IN ZY CHARACTER, 
+								IN JY CHARACTER, 
+								IN DJRQ CHARACTER, 
+								IN DJJGDM CHARACTER,
+								IN DJJGMC CHARACTER,
+								IN ALLDATA CHARACTER,
+								IN lineNum INTEGER ) BEGIN
+									
+		DECLARE strSql CHARACTER;
+		SET strSql = 'INSERT INTO t_dishui_djxx_err (
+						BATCHNUM,SOURCENAME,LINENUM,ALLDATA,ERRORREASON,
+						ZZJGDM,QYMC,QYZCH,NSRSBH,HSFSDM,
+						HSFSMC,ZY,JY,DJRQ,DJJGDM, 
+						DJJGMC) 
+					 values (
+					 	?,?,?,?,?,
+						?,?,?,?,?,
+						?,?,?,?,?,
+						?
+					 )';		
+		PASSTHRU strSql to Database.orcl values (	
+									BATCHNUM,SOURCENAME,lineNum,ALLDATA,reason,												
+									ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
+									HSFSMC, ZY, JY, DJRQ, DJJGDM, 
+									DJJGMC
+									);
+END;
+
+
+

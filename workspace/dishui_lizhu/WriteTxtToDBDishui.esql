@@ -1,0 +1,481 @@
+
+DECLARE TableName SHARED CHARACTER ;
+DECLARE FileName SHARED CHARACTER;
+DECLARE RowDataColConfig SHARED ROW;
+
+DECLARE RowDicColHSFS SHARED ROW;
+
+DECLARE LineNumDishui SHARED INTEGER 0;
+DECLARE CorrectNumDishui SHARED INTEGER 0;
+DECLARE ExistsNumDishui SHARED INTEGER 0;
+DECLARE FormatErrorDishui SHARED INTEGER 0;
+DECLARE StandSplitterDishui SHARED CHARACTER '||';
+
+
+CREATE PROCEDURE ResetSharedValue() BEGIN
+	SET RowDataColConfig  = NULL;
+	SET TableName = NULL;
+	SET FileName = NULL;
+	
+	SET LineNumDishui = 0;
+	SET CorrectNumDishui = 0;
+	SET ExistsNumDishui = 0;		
+	SET FormatErrorDishui = 0;
+	
+	SET RowDicColHSFS  = NULL;
+END;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_ResetFile
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		SET OutputLocalEnvironment.Variables.TabName = TableName;
+		
+		SET TableName = NULL;
+		
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
+
+
+
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		DECLARE strLine CHARACTER;
+		DECLARE rowCol ROW;
+		SET strLine = Environment.Variables.StrLine;
+		
+		SET LineNumDishui = LineNumDishui +1;
+		
+		-- Write Start Log
+		IF LineNumDishui = 1 THEN
+			
+			SET Environment.Variables.TIME = CURRENT_TIMESTAMP;
+			SET Environment.Variables.TYPE = ' 信息';
+			SET Environment.Variables.PROCESS = ' 读取文件并入库';
+			SET Environment.Variables.FILE =  ' ' || FileName;
+			SET Environment.Variables.AUDIT = '   ';
+			SET Environment.Variables.NOTES = ' 文件读取开始';
+			
+			DECLARE logResult CHARACTER;
+			SET logResult = CAST(Environment.Variables.TIME AS CHARACTER) || 
+							Environment.Variables.TYPE || 
+							Environment.Variables.PROCESS || 
+							Environment.Variables.FILE || 
+							Environment.Variables.AUDIT || 
+							Environment.Variables.NOTES;
+			SET OutputRoot.BLOB.BLOB = CAST(logResult as blob CCSID 1386);
+			SET OutputLocalEnvironment.Destination.File.Name = 'log.txt';	
+			--SET OutputLocalEnvironment.Destination.File.Action = 'Append';							
+			PROPAGATE;
+		END IF;		
+		
+		--按照定界符循环处理读取记录
+		DECLARE i INTEGER 1;
+		DECLARE col CHARACTER;
+		WHILE CONTAINS(strLine, StandSplitterDishui) DO
+			SET col = SUBSTRING(strLine BEFORE StandSplitterDishui);
+			SET rowCol.row[i].value = col;						
+			SET strLine = SUBSTRING(strLine AFTER StandSplitter);
+			SET i = i + 1;
+		END WHILE;
+		SET rowCol.row[i].value = strLine;								
+
+
+		
+		-- 格式校验
+		DECLARE NSRSBH CHARACTER; 
+		SET NSRSBH = TRIM(rowCol.row[cast(RowDataColConfig.row[1].NSRSBH as INTEGER)].value);
+		DECLARE HSFSDM CHARACTER;
+		SET HSFSDM = TRIM(rowCol.row[cast(RowDataColConfig.row[1].HSFSDM as INTEGER)].value);
+		DECLARE DJRQ CHARACTER;
+		SET DJRQ = TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJRQ as INTEGER)].value);			
+		
+		DECLARE ZZJGDM CHARACTER;
+		SET ZZJGDM = TRIM(rowCol.row[cast(RowDataColConfig.row[1].ZZJGDM as INTEGER)].value);			
+		DECLARE QYMC CHARACTER;
+		SET QYMC = TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYMC as INTEGER)].value);			
+		DECLARE QYZCH CHARACTER;
+		SET QYZCH = TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYZCH as INTEGER)].value);		
+		
+		-- 组织机构代码、企业名称、工商注册：至少填一个
+		IF ( ZZJGDM IS NULL OR ZZJGDM = '')  AND 
+			( QYMC IS NULL OR QYMC = '')  AND 
+			( QYZCH IS NULL OR QYZCH = '')  
+		THEN
+			Set FormatErrorDishui = FormatErrorDishui + 1;
+			RETURN FALSE;
+		END IF;
+		
+		-- 纳税人识别号不能为空
+		IF   NSRSBH IS NULL OR NSRSBH = ''
+		THEN
+			Set FormatErrorDishui = FormatErrorDishui + 1;
+			RETURN FALSE;
+		END IF;		
+	
+		--去重处理
+		DECLARE md5CodeSql CHARACTER;
+		DECLARE md5CodeData ROW;
+		DECLARE md5CodeCount INTEGER;
+		
+		DECLARE ZZJGDM_COL CHARACTER;
+		SET ZZJGDM_COL = rowCol.row[cast(RowDataColConfig.row[1].ZZJGDM as INTEGER)].value;
+		SET ZZJGDM_COL = TRIM(ZZJGDM_COL);
+		SET  ZZJGDM_COL = ZZJGDM_COL; --  || '_' || CAST(CURRENT_TIMESTAMP AS CHARACTER);
+		
+		IF ZZJGDM_COL IS NULL OR ZZJGDM_COL = '' THEN
+			SET ZZJGDM_COL = 'NULL';
+		END IF;
+		
+		SET md5CodeSql  = 'select count(1) c_num from t_dishui_djxx  where md5code = md5(?)';
+		SET md5CodeData.row[] = passthru(md5CodeSql to Database.orcl values(ZZJGDM_COL));  
+		SET md5CodeCount = md5CodeData.row[1].C_NUM;
+		
+		DECLARE strSql CHARACTER;
+		SET strSql = 'INSERT INTO t_dishui_djxx (
+						recid,batchnum,sourcename,linenum,createtime,md5code,
+						ZZJGDM,QYMC,QYZCH,NSRSBH,HSFSDM,
+						HSFSMC,ZY,JY,DJRQ,DJJGDM, 
+						DJJGMC) 
+					 values (
+					 	sys_guid(),20090905,''' || FileName || ''','|| CAST(LineNumDishui AS CHARACTER) ||',sysdate,md5(?),
+						?,?,?,?,?,
+						?,?,?,?,?,
+						?
+					 )';		
+		
+		-- 入库
+		IF 	md5CodeCount = 0 THEN	
+			SET CorrectNumDishui = CorrectNumDishui + 1;
+			PASSTHRU strSql to Database.orcl values (	
+													TRIM(ZZJGDM_COL), 
+													TRIM(ZZJGDM_COL), 
+													TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYMC as INTEGER)].value),
+													TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYZCH as INTEGER)].value), 
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].NSRSBH as INTEGER)].value), 
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].HSFSDM as INTEGER)].value), 
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].HSFSMC as INTEGER)].value), 
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].ZY as INTEGER)].value),
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].JY as INTEGER)].value),
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJRQ as INTEGER)].value), 
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJJGDM as INTEGER)].value), 
+												 	TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJJGMC as INTEGER)].value)
+												 );
+		ELSE 
+			SET ExistsNumDishui = ExistsNumDishui + 1;
+		END IF;		 	
+		-- 核算方式代码校验
+--		IF RowDicColHSFS.row[1].{HSFSDM} = NULL THEN
+--			Set FormatErrorDishui = FormatErrorDishui + 1;
+--		END IF;
+								 
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_ZXXXLine
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXEOF
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		 
+		DECLARE rowData ROW;
+		DECLARE strSqlXML CHARACTER;
+		DECLARE dataNum INTEGER;
+		DECLARE i INTEGER 1;
+	
+		SET strSqlXML = 'select * from t_dishui_djxx where filecode is null ';		--取得数据的SQL
+
+		IF dataNum = 0  then 
+			throw user exception message 2951 values('从' || TableName || '表中没有查询出对应的详细信息！');-- 这种情况基本上不会发生
+		END IF;
+		
+		SET rowData.row[] = passthru(strSqlXML to Database.orcl);
+		
+		SET dataNum = CARDINALITY(rowData.row[]);
+		
+		IF dataNum <> 0 THEN
+			WHILE i <= dataNum DO
+				SET OutputRoot.XMLNSC.root.rowset.row[i].(XMLNSC.Attribute)num = i;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].RECID = rowData.row[i].RECID;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].BATCHNUM = rowData.row[i].BATCHNUM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].FILECODE = rowData.row[i].FILECODE;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].SOURCENAME = rowData.row[i].SOURCENAME;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].LINENUM = rowData.row[i].LINENUM ;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].CREATETIME = rowData.row[i].CREATETIME ;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].MD5CODE = rowData.row[i].MD5CODE;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].ZZJGDM = rowData.row[i].ZZJGDM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].QYMC = rowData.row[i].QYMC;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].QYZCH = rowData.row[i].QYZCH;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].NSRSBH = rowData.row[i].NSRSBH;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].HSFSDM = rowData.row[i].HSFSDM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].HSFSMC = rowData.row[i].HSFSMC;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].ZY = rowData.row[i].ZY;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].JY = rowData.row[i].JY;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].DJRQ = rowData.row[i].DJRQ;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].DJJGDM = rowData.row[i].DJJGDM;
+				SET OutputRoot.XMLNSC.root.rowset.row[i].DJJGMC = rowData.row[i].DJJGMC;
+				SET i = i+1;
+			END WHILE;
+			SET  OutputLocalEnvironment.Destination.File.Name = substring(FileName BEFORE '.') || '.xml';			
+			--  TO fileOutput
+			PROPAGATE TO TERMINAL 'out1';
+		END IF;
+		
+		DECLARE strSql CHARACTER;
+		SET strSql = 'update t_dishui_djxx set filecode = ''' || substring(FileName BEFORE '.') || '.xml' || ''' where filecode is null';
+		passthru strSql to Database.orcl;
+
+		SET Environment.Variables.TIME = CURRENT_TIMESTAMP;
+		SET Environment.Variables.TYPE = '  信息';
+		SET Environment.Variables.PROCESS = '  入库取增量数据';
+		SET Environment.Variables.FILE = '  生成：' || substring(FileName BEFORE '.') || '.xml';
+			
+		SET Environment.Variables.AUDIT = '  总数:'||CAST(LineNumDishui AS CHARACTER)||
+													' ,插入数据：'||CAST(CorrectNumDishui AS CHARACTER)||
+													' ,重复：'||CAST(ExistsNumDishui AS CHARACTER) ||
+													' ,格式错误：'||CAST(FormatErrorDishui AS CHARACTER);		
+													
+		SET Environment.Variables.NOTES = '  读取增量文件记录、生成xml结束';
+		
+		DECLARE logResult CHARACTER;
+		SET logResult = CAST(Environment.Variables.TIME AS CHARACTER) || 
+						Environment.Variables.TYPE || 
+						Environment.Variables.PROCESS || 
+						Environment.Variables.FILE || 
+						Environment.Variables.AUDIT || 
+						Environment.Variables.NOTES;
+		SET OutputRoot.BLOB.BLOB = CAST(logResult as blob CCSID 1381);
+
+		SET OutputLocalEnvironment.Destination.File.Name = 'log.txt';	
+		
+		
+		-- to log 
+		PROPAGATE TO TERMINAL 'out';
+		-- to end log  
+		SET OutputLocalEnvironment.Destination.File.Name = 'log.txt';	
+		PROPAGATE TO TERMINAL 'out2';
+		
+		--CALL CopyEntireMessage();
+		RETURN FALSE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_ZXXXEOF
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_GetFileInfo
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		-- 重置共享变量
+		IF InputLocalEnvironment.File.Record = 1 THEN
+			CALL ResetSharedValue();
+		END IF;
+		
+		-- 文件名
+		IF FileName is NULL THEN
+			SET FileName =  InputLocalEnvironment.File.Name ;
+		END IF;
+		
+		-- 记录数统计
+		SET LineNumCommon = LineNumCommon + 1;
+		 
+		DECLARE str CHARACTER;
+		--得到读取得一条记录,第一个字段
+		SET str = CAST(InputRoot.BLOB.BLOB as CHARACTER CCSID 1386);
+			
+		SET Environment.Variables.StrLine = str;
+		
+		DECLARE strSql CHARACTER;
+		
+		-- 查找表名
+		IF TableName IS NULL THEN
+			DECLARE rowTableInfo ROW;
+			SET strSql = 'select b.tablename as tablename from t_filepreview a , t_table b 
+							where a.messageid= b.messageid 
+							and a.uploadname = ?';
+			SET rowTableInfo.row[] = passthru(strSql to Database.orcl 
+				values(InputLocalEnvironment.File.Name ));
+			DECLARE tableRowNum INTEGER;
+			SET tableRowNum = CARDINALITY(rowTableInfo.row[]);
+			if tableRowNum = 0  then 
+				throw user exception message 2951 values('系统中没有和文件相关联的数据表！');
+			end if;
+			SET TableName = rowTableInfo.row[1].TABLENAME;
+		end if ;
+		SET OutputLocalEnvironment.Variables.TabName = TableName;
+
+		-- 查找配置
+		IF RowDataColConfig IS NULL THEN
+			DECLARE results ROW;
+			DECLARE I INTEGER;
+			DECLARE J INTEGER;
+			SET strSql = 'select b.columnname, a.sourceorderid
+						  from t_datasource a, t_column b, t_table c
+						 where a.messageid = b.messageid
+						   and a.columnid = b.columnid
+						   and b.messageid = c.messageid
+						   and c.tablename = ?';
+			SET results.row[] = passthru(strSql to Database.orcl 
+				values(TableName));
+			FOR source1 AS results.row[]  DO
+				EVAL('SET RowDataColConfig.row[1].'|| source1.COLUMNNAME || ' = ' ||
+					CAST(source1.SOURCEORDERID AS CHARACTER) || ';');
+			END FOR;	
+		END IF;
+		
+		-- 字典表
+--		IF RowDicColHSFS IS NULL THEN
+--			DECLARE results ROW;
+--			DECLARE I INTEGER;
+--			DECLARE J INTEGER;
+--			SET strSql = 'select code from t_dict where dictname = ''HSFS''';
+--			SET results.row[] = passthru(strSql to Database.orcl);
+--			FOR source1 AS results.row[]  DO
+--				EVAL('SET RowDicColHSFS.row[1].'|| source1.CODE || ' = ''v'';');
+--			END FOR;	
+--		END IF;
+		
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_Exception
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
