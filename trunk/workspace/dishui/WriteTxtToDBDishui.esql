@@ -301,18 +301,20 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXEOF
 	    		 ExistsNumDishui, FormatErrorDishui, dataNum, '2', LogResult);
 
 		CALL WriteBrief(dataNum);
+		PROPAGATE TO TERMINAL 'out1';
 		RETURN FALSE;
 	END;
 	
 	CREATE PROCEDURE  WriteBrief(IN changeNum INTEGER)
 	BEGIN
-		SET  OutputLocalEnvironment.Destination.File.Name = substring(FileName BEFORE '_BRIEF.') || '.xml';
+		SET OutputLocalEnvironment.Destination.File.Name = substring(FileName BEFORE '_BRIEF.') || '.xml';
 		SET OutputRoot.XMLNSC.BRIEF.FILE_NAME = substring(FileName BEFORE '.') || '.xml';
 		SET OutputRoot.XMLNSC.BRIEF.DATA_NUM = LineNumDishui;
 		SET OutputRoot.XMLNSC.BRIEF.INSERT_NUM = CorrectNumDishui;
 		SET OutputRoot.XMLNSC.BRIEF.EXISTS_NUM = ExistsNumDishui;
 		SET OutputRoot.XMLNSC.BRIEF.F_ERROR_NUM = FormatErrorDishui;						
 		SET OutputRoot.XMLNSC.BRIEF.CHANGE_NUM = changeNum;						
+		SET OutputRoot.XMLNSC.BRIEF.TABLE_NAME = 'T_DIXX_DISHUI';						
 	END;
 
 END MODULE;
