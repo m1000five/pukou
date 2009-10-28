@@ -2,10 +2,18 @@
 DECLARE TableName SHARED CHARACTER ;
 DECLARE FileName SHARED CHARACTER;
 DECLARE RowDataColConfig SHARED ROW;
+DECLARE TxtMessageID SHARED CHARACTER;
 
 DECLARE RowDicColHSFS SHARED ROW;
 
+--日志
+DECLARE allCount SHARED INTEGER 0;
+DECLARE sharedvalue SHARED INTEGER 10;
+
 DECLARE LineNumDishui SHARED INTEGER 0;
+
+DECLARE DataLineNumDishui SHARED INTEGER 0;
+
 DECLARE CorrectNumDishui SHARED INTEGER 0;
 DECLARE ExistsNumDishui SHARED INTEGER 0;
 DECLARE FormatErrorDishui SHARED INTEGER 0;
@@ -17,26 +25,37 @@ DECLARE IsCheckDate SHARED BOOLEAN;
 
 DECLARE LogResult SHARED CHARACTER;
 
+DECLARE OrignFileName SHARED CHARACTER;
+
+create function test() returns boolean
+begin
+	return false;
+end;
 
 CREATE PROCEDURE ResetSharedValue() BEGIN
 	SET RowDataColConfig  = NULL;
 	SET TableName = NULL;
 	SET FileName = NULL;
-	
+	SET TxtMessageID=NULL;
 	SET LineNumDishui = 0;
+	SET DataLineNumDishui = 0;
 	SET CorrectNumDishui = 0;
 	SET ExistsNumDishui = 0;		
 	SET FormatErrorDishui = 0;
-	
+	SET allCount= 0;
+	SET OrignFileName = NULL;
 	SET RowDicColHSFS  = NULL;
 END;
 
-CREATE PROCEDURE NotNULL(IN para CHARACTER, OUT para1 CHARACTER) BEGIN
+CREATE function NotNULL(IN para CHARACTER) returns CHARACTER 
+BEGIN
+	DECLARE para1 CHARACTER;
 	IF para IS NULL OR UPPER(para) = 'NULL' OR para = '' THEN
 		SET para1 = ' ';
 	ELSE
 		SET para1 = para;
 	END IF;
+	return para1;
 END;
 
 CREATE PROCEDURE InsertErrData( IN reason CHARACTER, 
@@ -53,11 +72,12 @@ CREATE PROCEDURE InsertErrData( IN reason CHARACTER,
 								IN DJJGMC CHARACTER,
 								IN ALLDATA CHARACTER,
 								IN lineNum INTEGER,
-								IN fileName CHARACTER ) BEGIN
+								IN fileName CHARACTER,
+								IN errorType CHARACTER ) BEGIN
 									
 		DECLARE strSql CHARACTER;
 		SET strSql = 'INSERT INTO t_dishui_djxx_err (
-						BATCHNUM,SOURCENAME,LINENUM,ALLDATA,ERRORREASON,
+						SOURCENAME,LINENUM,ERRORTYPE,ERRORREASON,ALLDATA,
 						ZZJGDM,QYMC,QYZCH,NSRSBH,HSFSDM,
 						HSFSMC,ZY,JY,DJRQ,DJJGDM, 
 						DJJGMC) 
@@ -68,7 +88,7 @@ CREATE PROCEDURE InsertErrData( IN reason CHARACTER,
 						?
 					 )';		
 		PASSTHRU strSql to Database.orcl values (	
-									'2009010905',fileName,lineNum,ALLDATA,reason,												
+									fileName,lineNum,errorType,reason,ALLDATA,												
 									ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
 									HSFSMC, ZY, JY, DJRQ, DJJGDM, 
 									DJJGMC
@@ -94,6 +114,14 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
 		
 		SET LineNumDishui = LineNumDishui +1;
 		
+		
+		--数据处理中日志			
+		SET allCount = allCount+1;
+		IF allCount = sharedvalue THEN
+			CALL InsertLogDataProcess1('TXT文件处理中处理到'|| CAST(LineNumDishui AS CHARACTER)||'条',FileID,userData,2,'处理中','INFO');
+			SET allCount = 0;
+		END IF;
+		
 		-- Write Start Log
 		IF LineNumDishui = 1 THEN
 			SET LogResult = CAST(CURRENT_TIMESTAMP AS CHARACTER) || 
@@ -102,9 +130,19 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
 							' ' || FileName || 
 							'   ' || 
 							' 文件读取开始';
-			SET LogResult = '开始时间：' || CAST(CURRENT_TIMESTAMP AS CHARACTER);
+			--	SET LogResult = '开始时间：' || CAST(CURRENT_TIMESTAMP AS CHARACTER);
+			SET LogResult=CAST(CURRENT_TIMESTAMP AS CHARACTER);
+			
+			SET StartLineNum = GetStartLineNum(FileName, '0');
 		END IF;		
+		 
+		-- 小于设定行则不处理
+		IF LineNumDishui < StartLineNum THEN
+			RETURN FALSE;
+		END IF;	
 		
+		SET DataLineNumDishui = DataLineNumDishui + 1;
+			
 		-- 按照定界符循环处理读取记录
 		DECLARE i INTEGER 1;
 		DECLARE col CHARACTER;
@@ -131,17 +169,61 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
 		DECLARE DJJGDM CHARACTER;
 		DECLARE DJJGMC CHARACTER;
 
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].ZZJGDM as INTEGER)].value), ZZJGDM);			
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYMC as INTEGER)].value), QYMC);			
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYZCH as INTEGER)].value), QYZCH);		
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].NSRSBH as INTEGER)].value), NSRSBH);
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].HSFSDM as INTEGER)].value), HSFSDM);
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].HSFSMC as INTEGER)].value), HSFSMC);
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].ZY as INTEGER)].value), ZY);
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].JY as INTEGER)].value), JY);
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJRQ as INTEGER)].value), DJRQ);			
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJJGDM as INTEGER)].value), DJJGDM);			
-		CALL NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJJGMC as INTEGER)].value), DJJGMC);	
+		IF cast(RowDataColConfig.row[1].ZZJGDM as INTEGER) <> 0 THEN
+			SET ZZJGDM = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].ZZJGDM as INTEGER)].value));			
+		ELSE
+			SET ZZJGDM = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].QYMC as INTEGER) <> 0 THEN
+			SET QYMC = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYMC as INTEGER)].value));			
+		ELSE
+			SET QYMC = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].QYZCH as INTEGER) <> 0 THEN
+			SET QYZCH = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].QYZCH as INTEGER)].value));			
+		ELSE
+			SET QYZCH = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].NSRSBH as INTEGER) <> 0 THEN
+			SET NSRSBH = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].NSRSBH as INTEGER)].value));			
+		ELSE
+			SET NSRSBH = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].HSFSDM as INTEGER) <> 0 THEN
+			SET HSFSDM = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].HSFSDM as INTEGER)].value));			
+		ELSE
+			SET HSFSDM = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].HSFSMC as INTEGER) <> 0 THEN
+			SET HSFSMC = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].HSFSMC as INTEGER)].value));			
+		ELSE
+			SET HSFSMC = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].ZY as INTEGER) <> 0 THEN
+			SET ZY = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].ZY as INTEGER)].value));			
+		ELSE
+			SET ZY = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].JY as INTEGER) <> 0 THEN
+			SET JY = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].JY as INTEGER)].value));			
+		ELSE
+			SET JY = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].DJRQ as INTEGER) <> 0 THEN
+			SET DJRQ = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJRQ as INTEGER)].value));			
+		ELSE
+			SET DJRQ = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].DJJGDM as INTEGER) <> 0 THEN
+			SET DJJGDM = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJJGDM as INTEGER)].value));			
+		ELSE
+			SET DJJGDM = ' ';
+		END IF;
+		IF cast(RowDataColConfig.row[1].DJJGMC as INTEGER) <> 0 THEN
+			SET DJJGMC = NotNULL(TRIM(rowCol.row[cast(RowDataColConfig.row[1].DJJGMC as INTEGER)].value));			
+		ELSE
+			SET DJJGMC = ' ';
+		END IF;
 		
 		-- 组织机构代码、企业名称、工商注册：至少填一个
 		IF ( ZZJGDM IS NULL OR ZZJGDM = '')  AND 
@@ -151,7 +233,7 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
 			Set FormatErrorDishui = FormatErrorDishui + 1;
 			CALL InsertErrData('组织机构代码、企业名称、工商注册：都为空', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', LineNumDishui, substring(FileName BEFORE '.') || '.xml');
+								DJJGDM, DJJGMC, ' ', LineNumDishui, FileName,'1');
 			RETURN FALSE;
 		END IF;
 		
@@ -161,7 +243,7 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
 			Set FormatErrorDishui = FormatErrorDishui + 1;
 			CALL InsertErrData('纳税人识别号为空', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', LineNumDishui, substring(FileName BEFORE '.') || '.xml');
+								DJJGDM, DJJGMC, ' ', LineNumDishui, FileName,'1');
 			RETURN FALSE;
 		END IF;		
 		
@@ -171,7 +253,7 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
 			Set FormatErrorDishui = FormatErrorDishui + 1;
 			CALL InsertErrData('登记日期格式不正确', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', LineNumDishui, substring(FileName BEFORE '.') || '.xml');
+								DJJGDM, DJJGMC, ' ', LineNumDishui, FileName,'1');
 			RETURN FALSE;
 		END IF;
 	
@@ -183,47 +265,82 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXLine
 --		IF ZZJGDM IS NULL OR ZZJGDM = '' THEN
 --			SET ZZJGDM = 'NULL';
 --		END IF;
-		SET md5CodeSql  = 'select count(1) c_num from t_dishui_djxx  where md5code = md5(
-						md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?))';
+		SET md5CodeSql  = 'select count(1) c_num from t_dataprocess  where md5code = md5(
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)))';
 		SET md5CodeData.row[] = passthru(md5CodeSql to Database.orcl 
 										values(
-										ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
-										HSFSMC, ZY, JY, DJRQ, DJJGDM, 
-										DJJGMC));  
+								ZZJGDM, ZZJGDM, QYMC, QYMC,
+								QYZCH, QYZCH, NSRSBH, NSRSBH,
+								HSFSDM, HSFSDM, HSFSMC, HSFSMC, 
+								ZY, ZY, JY, JY,
+								DJRQ, DJRQ, DJJGDM, DJJGDM, 
+								DJJGMC, DJJGMC
+								));  
 		SET md5CodeCount = md5CodeData.row[1].C_NUM;
 		
 		-- 入库
-		DECLARE strSql CHARACTER;
-		SET strSql = 'INSERT INTO t_dishui_djxx (
-						recid,batchnum,sourcename,linenum,createtime,md5code,
+		DECLARE str_Sql CHARACTER;
+		DECLARE str_Sql_Process CHARACTER;
+		DECLARE guid_sql CHARACTER NULL;
+		DECLARE guid_row ROW;
+		DECLARE guid_data CHARACTER;
+		SET guid_sql = 'select cast(sys_guid() as varchar2(40)) as guid from dual';
+		SET guid_row.row[] = passthru(guid_sql to Database.orcl);
+		SET guid_data = guid_row.row[1].GUID;
+	--	SET guid_data = CAST(guid_row.row[1].GUID AS BLOB);
+		SET str_Sql_Process = 'INSERT INTO t_dataprocess(messageid,recid,sourcename,
+								linenum,createtime,md5code)
+								values(?,?,?,?,sysdate,md5(
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)))
+								)';
+		
+		SET str_Sql = 'INSERT INTO t_dishui_djxx (
+						recid,
 						ZZJGDM,QYMC,QYZCH,NSRSBH,HSFSDM,
 						HSFSMC,ZY,JY,DJRQ,DJJGDM, 
 						DJJGMC) 
 					 values (
-					 	sys_guid(),20090905,''' || FileName || ''','|| CAST(LineNumDishui AS CHARACTER) ||',sysdate,
-					 	md5(md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?)),
-						trim(?),trim(?),trim(?),trim(?),trim(?),
-						trim(?),trim(?),trim(?),trim(?),trim(?),
-						trim(?)
-					 )';		
+					 	?,
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?)
+					 )';			
 		IF 	md5CodeCount = 0 THEN	
 			SET CorrectNumDishui = CorrectNumDishui + 1;
-			PASSTHRU strSql to Database.orcl values (	
-													ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
-													HSFSMC, ZY, JY, DJRQ, DJJGDM, 
-													DJJGMC, 
-													ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
-													HSFSMC, ZY, JY, DJRQ, DJJGDM, 
-													DJJGMC
-												 );
+			PASSTHRU str_Sql_Process to Database.orcl values (	
+								TxtMessageID, guid_data, FileName, CAST(LineNumDishui AS CHARACTER), 
+								ZZJGDM, ZZJGDM, QYMC, QYMC,
+								QYZCH, QYZCH, NSRSBH, NSRSBH,
+								HSFSDM, HSFSDM, HSFSMC, HSFSMC, 
+								ZY, ZY, JY, JY,
+								DJRQ, DJRQ, DJJGDM, DJJGDM, 
+								DJJGMC, DJJGMC
+							 );
+			PASSTHRU str_Sql to Database.orcl values (guid_data, 
+								ZZJGDM, ZZJGDM, QYMC, QYMC,
+								QYZCH, QYZCH, NSRSBH, NSRSBH,
+								HSFSDM, HSFSDM, HSFSMC, HSFSMC, 
+								ZY, ZY, JY, JY,
+								DJRQ, DJRQ, DJJGDM, DJJGDM, 
+								DJJGMC, DJJGMC
+							 );
 		ELSE 
 			CALL InsertErrData('相同数据已存在', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', LineNumDishui, substring(FileName BEFORE '.') || '.xml');
+								DJJGDM, DJJGMC, ' ', LineNumDishui, FileName,'0');
 			SET ExistsNumDishui = ExistsNumDishui + 1;
 		END IF;		 	
 		RETURN FALSE;
@@ -248,16 +365,21 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXEOF
 		DECLARE i INTEGER 1;
 	
 		-- 取得增量数据
-		SET strSqlXML = 'select * from t_dishui_djxx where filecode is null ';		
+		
+SET strSqlXML = 'select  a.* from t_dishui_djxx a ,t_dataprocess b, t_filepreview c
+				where a.recid= b.recid 
+				and b.messageid = c.messageid 
+				and c.uploadname = ? 
+				and b.fileid is null ';
 		IF dataNum = 0  then 
 			throw user exception message 2951 values('从' || TableName || '表中没有查询出对应的详细信息！');-- 这种情况基本上不会发生
 		END IF;
-		SET rowData.row[] = passthru(strSqlXML to Database.orcl);
+		SET rowData.row[] = passthru(strSqlXML to Database.orcl values(FileName));
 		SET dataNum = CARDINALITY(rowData.row[]);
 		
 		IF dataNum <> 0 THEN
 			FOR source1 AS rowData.row[]  DO
-				SET OutputRoot.XMLNSC.root.rowset.row[i].(XMLNSC.Attribute)num = i;
+			--	SET OutputRoot.XMLNSC.root.rowset.row[i].(XMLNSC.Attribute)num = i;
 				SET OutputRoot.XMLNSC.root.rowset.row[i].RECID = source1.RECID;
 				SET OutputRoot.XMLNSC.root.rowset.row[i].BATCHNUM = source1.BATCHNUM;
 				SET OutputRoot.XMLNSC.root.rowset.row[i].FILECODE = source1.FILECODE;
@@ -278,29 +400,38 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_DJXXEOF
 				SET OutputRoot.XMLNSC.root.rowset.row[i].DJJGMC = source1.DJJGMC;
 				SET i = i+1;
 			END FOR;
-			SET  OutputLocalEnvironment.Destination.File.Name = substring(FileName BEFORE '.') || '.xml';			
+			SET  OutputLocalEnvironment.Destination.File.Name = substring(FileName BEFORE '.') || '$T_DISHUI_DJXX'  || '.xml';			
 			--  TO fileOutput
 			PROPAGATE TO TERMINAL 'out1';
 		END IF;
 
 		-- 更新标志位		
 		DECLARE strSql CHARACTER;
-		SET strSql = 'update t_dishui_djxx set filecode = ''' || substring(FileName BEFORE '.') || '.xml' || ''' where filecode is null';
+		SET strSql = 'update t_dataprocess set fileid = ''' || substring(FileName BEFORE '.')   || '.xml' || ''' where fileid is null';
 		passthru strSql to Database.orcl;
 
 		-- 记日志
-		SET strSql = 'insert into t_data_log (
-				FILE_NAME, FILE_PATH, OPT_TIME, INFO_LEVEL, DATA_NUM, INSERT_NUM, 
-				EXISTS_NUM, F_ERROR_NUM, CHANGE_NUM, FLAG, ERROR_MESSAGE)
-				values
-				(?, ?, sysdate, ?, ?, ?, 
-				 ?, ?, ?, ?, ?)';
-	    SET LogResult = LogResult || ' 结束时间：' || CAST(CURRENT_TIMESTAMP AS CHARACTER);
-	    passthru strSql to Database.orcl values 
-	    		(FileName, ' ', 'INFO', LineNumDishui, CorrectNumDishui,
-	    		 ExistsNumDishui, FormatErrorDishui, dataNum, '2', LogResult);
+--		SET strSql = 'insert into t_data_log (
+--				FILE_NAME, FILE_PATH, OPT_TIME, INFO_LEVEL, DATA_NUM, INSERT_NUM, 
+--				EXISTS_NUM, F_ERROR_NUM, CHANGE_NUM, FLAG, ERROR_MESSAGE)
+--				values
+--				(?, ?, sysdate, ?, ?, ?, 
+--				 ?, ?, ?, ?, ?)';
+--	    SET LogResult = LogResult || ' 结束时间：' || CAST(CURRENT_TIMESTAMP AS CHARACTER);
+--	    passthru strSql to Database.orcl values 
+--	    		(FileName, ' ', 'INFO', LineNumDishui, CorrectNumDishui,
+--	    		 ExistsNumDishui, FormatErrorDishui, dataNum, '2', LogResult);
+		--记录新日志信息
+		SET strSql='insert into T_PROCESSREPORT_FRONT(PROCESSID,BEGINTIME,ENDTIME,MESSAGEID,DATASOURCE,
+						TOTALCOUNT,INCREASECOUNT,INCCHKERRCOUNT,FMTCHKERRCOUNT,CREATETIME,USERID,PROCESSSTATUS,INCREASERATE)
+				 	 values(?,?,?,?,?,?,?,?,?,sysdate,?,''1'',round(?/?,2))';
+		 passthru strSql to Database.orcl values 
+	    		(substring(FileName BEFORE '.'), LogResult,CURRENT_TIMESTAMP, TxtMessageID, OrignFileName, DataLineNumDishui, CorrectNumDishui,
+	    		 ExistsNumDishui, FormatErrorDishui,userData,CorrectNumDishui,DataLineNumDishui);
+		
 
-		CALL WriteBrief(dataNum);
+--		CALL WriteBrief(dataNum);
+		CALL InsertLogDataProcess1('TXT文件处理结束',FileID,userData,2,'处理结束','INFO');
 		PROPAGATE TO TERMINAL 'out1';
 		RETURN FALSE;
 	END;
@@ -331,15 +462,28 @@ END MODULE;
 CREATE COMPUTE MODULE WriteTxtToDBDishui_GetFileInfo
 	CREATE FUNCTION Main() RETURNS BOOLEAN
 	BEGIN	
+		SET LineNumCommon = LineNumCommon + 1;		
+		--记录日志开始
+		IF InputLocalEnvironment.File.Record = 1 THEN 
+			CALL ResetSharedValue();
+			DECLARE userSql CHARACTER;
+			DECLARE userRow ROW;
+			SET userSql = 'select userid,fileid, sourcename from t_filepreview where UPLOADNAME=?';
+			SET userRow.row[] = passthru(userSql to Database.orcl values(InputLocalEnvironment.File.Name));
+			SET userData= userRow.row[1].USERID;
+			SET FileID = userRow.row[1].FILEID;
+			SET OrignFileName = userRow.row[1].SOURCENAME;
+			CALL InsertLogDataProcess1('TXT文件处理开始',FileID,userData,2,'处理开始','INFO');
+		END IF;
 		DECLARE strSql CHARACTER;
 
 		-- 重置共享变量
 		IF InputLocalEnvironment.File.Record = 1 THEN
-			CALL ResetSharedValue();
+			
 			-- 设置校验参数开关
 			DECLARE results ROW;
 			DECLARE ruleType CHARACTER;
-			SET results.row[] = passthru('select * from T_ADMIN_RULE ' to Database.orcl  );
+			SET results.row[] = passthru('select * from t_meta_rule ' to Database.orcl  );
 
 			FOR source1 AS results.row[]  DO
 				SET ruleType = source1.RULETYPE; 
@@ -363,11 +507,15 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_GetFileInfo
 		END IF;
 		
 		-- 记录数统计
-		SET LineNumCommon = LineNumCommon + 1;
+
 		 
 		DECLARE str CHARACTER;
 		--得到读取得一条记录,第一个字段
 		SET str = CAST(InputRoot.BLOB.BLOB as CHARACTER CCSID 1386);
+		
+		SET str = REPLACE(str, '&', '&amp;');
+		SET str = REPLACE(str, '>', '&gt;');
+		SET str = REPLACE(str, '<', '&lt;');		
 			
 		SET Environment.Variables.StrLine = str;
 		
@@ -375,7 +523,7 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_GetFileInfo
 		-- 查找表名
 		IF TableName IS NULL THEN
 			DECLARE rowTableInfo ROW;
-			SET strSql = 'select b.tablename as tablename from t_filepreview a , t_table b 
+			SET strSql = 'select b.tablename as tablename,a.messageid as messageid from t_filepreview a , t_meta_table b 
 							where a.messageid= b.messageid 
 							and a.uploadname = ?';
 			SET rowTableInfo.row[] = passthru(strSql to Database.orcl 
@@ -386,6 +534,7 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_GetFileInfo
 				throw user exception message 2951 values('系统中没有和文件相关联的数据表！');
 			end if;
 			SET TableName = rowTableInfo.row[1].TABLENAME;
+			SET TxtMessageID = rowTableInfo.row[1].MESSAGEID;
 		end if ;
 		SET OutputLocalEnvironment.Variables.TabName = TableName;
 
@@ -395,7 +544,7 @@ CREATE COMPUTE MODULE WriteTxtToDBDishui_GetFileInfo
 			DECLARE I INTEGER;
 			DECLARE J INTEGER;
 			SET strSql = 'select b.columnname, a.sourceorderid
-						  from t_datasource a, t_column b, t_table c
+						  from t_meta_columnmapping a, t_meta_column b, t_meta_table c
 						 where a.messageid = b.messageid
 						   and a.columnid = b.columnid
 						   and b.messageid = c.messageid
@@ -450,3 +599,50 @@ CREATE PROCEDURE IsDate(IN P1 CHARACTER)
  
  
  
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteTxtToDBDishui_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

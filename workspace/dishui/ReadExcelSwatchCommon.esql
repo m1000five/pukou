@@ -2,10 +2,23 @@ DECLARE ExcelLineNumCommon SHARED INTEGER 0;
 DECLARE ExcelSwatchLineCount SHARED INTEGER 10;
 DECLARE ExcelXMLSwatchCommon SHARED CHARACTER ;
 
-
+ 
 CREATE COMPUTE MODULE ReadExcelSwatchCommon_ComputeLine
 	CREATE FUNCTION Main() RETURNS BOOLEAN
 	BEGIN 
+		
+		DECLARE userSql CHARACTER;
+		DECLARE userRow ROW;
+		
+		SET userSql = 'select userid,fileid from t_filepreview where UPLOADNAME=?';
+		SET userRow.row[] = passthru(userSql to Database.orcl values(InputLocalEnvironment.File.Name));
+		SET userData= userRow.row[1].USERID;
+		SET FileID = userRow.row[1].FILEID;
+		CALL InsertLogDataProcess1('EXCEL预处理开始',FileID,userData,2,'EXCEL预览开始','INFO');
+		
+		
+		SET StartLineNum = GetStartLineNum(InputLocalEnvironment.File.Name, '1');
+		
 		-- 记录数统计
 		SET ExcelLineNumCommon =CARDINALITY(InputRoot.XML.workbook.sheet[1].row[]);			
 		-- 循环取10行或者取到末尾
@@ -17,24 +30,23 @@ CREATE COMPUTE MODULE ReadExcelSwatchCommon_ComputeLine
 		SET ExcelXMLSwatchCommon = '<ROOT>';
 
 		WHILE (I <= SwatchLineCount AND I <= ExcelLineNumCommon) DO
-			SET J=1;
-			SET CellNum = CARDINALITY(InputRoot.XML.workbook.sheet[1].row[I].cell[]);
-			SET XMLLine = '<ROWSET>';
-			WHILE (J <= CellNum) DO
-				IF (InputRoot.XML.workbook.sheet[1].row[I].cell[J] IS NULL or InputRoot.XML.workbook.sheet[1].row[I].cell[J] = '' ) THEN
-					SET XMLLine = XMLLine ||'<COL></COL>';
-				ELSE
-					SET XMLLine = XMLLine || '<COL>' || InputRoot.XML.workbook.sheet[1].row[I].cell[J] || '</COL>';
-				END IF;
-				SET J = J+1;
-			END WHILE;			
-
+			-- 小于设定行则不处理
+			IF I >= StartLineNum THEN
+				SET J=1;
+				SET CellNum = CARDINALITY(InputRoot.XML.workbook.sheet[1].row[I].cell[]);
+				SET XMLLine = '<ROWSET>';
+				WHILE (J <= CellNum) DO
+					IF (InputRoot.XML.workbook.sheet[1].row[I].cell[J] IS NULL or InputRoot.XML.workbook.sheet[1].row[I].cell[J] = '' ) THEN
+						SET XMLLine = XMLLine ||'<COL></COL>';
+					ELSE
+						SET XMLLine = XMLLine || '<COL>' || InputRoot.XML.workbook.sheet[1].row[I].cell[J] || '</COL>';
+					END IF;
+					SET J = J+1;
+				END WHILE;			
+				SET XMLLine = XMLLine || '</ROWSET>';
+				SET ExcelXMLSwatchCommon=ExcelXMLSwatchCommon || XMLLine;			
+			END IF;
 			SET I=I+1;			
-
-			SET XMLLine = XMLLine || '</ROWSET>';
-			SET ExcelXMLSwatchCommon=ExcelXMLSwatchCommon || XMLLine;			
-			
-
 		END WHILE;
 		SET ExcelXMLSwatchCommon = ExcelXMLSwatchCommon || '</ROOT>';
 		
@@ -43,7 +55,8 @@ CREATE COMPUTE MODULE ReadExcelSwatchCommon_ComputeLine
 		set updateSql = 'UPDATE   t_filepreview SET  xml_target = ? WHERE  UPLOADNAME = ?';
 		passthru updateSql to Database.orcl values(ExcelXMLSwatchCommon ,
 				InputLocalEnvironment.File.Name );		
-
+		
+		
 		RETURN TRUE;
 	END;
  
@@ -53,6 +66,7 @@ END MODULE;
 CREATE COMPUTE MODULE ReadExcelSwatchCommon_ComputeEOF
 	CREATE FUNCTION Main() RETURNS BOOLEAN
 	BEGIN
+		CALL InsertLogDataProcess1('EXCEL预处理结束',FileID,userData,2,'EXCEL预览结束','INFO');
 		-- CALL CopyMessageHeaders();
 		-- CALL CopyEntireMessage();
 		RETURN TRUE;

@@ -2,12 +2,41 @@ DECLARE XmlLineNumCommon SHARED INTEGER 0;
 DECLARE XmlSwatchLineCount SHARED INTEGER 10;
 DECLARE XmlXMLSwatchCommon SHARED CHARACTER ;
 
+CREATE PROCEDURE InsertLogDataProcess( IN DETAIL CHARACTER, 
+								IN FILEID CHARACTER,
+								IN USERID CHARACTER,
+								IN PROGRAMTYPE INTEGER, 
+								IN STEPNAME CHARACTER,
+								IN INFOTYPE CHARACTER
+								) BEGIN
+									
+		DECLARE strSql CHARACTER;
+		SET strSql = 'INSERT INTO t_log_dataprocess (
+						FILEID,USERID,OPERATETIME,PROGRAMTYPE,STEPNAME,INFOTYPE,DETAIL) 
+					 values (
+					 	?,?,to_char(systimestamp,''yyyy-mm-dd HH24:MI:SSXff''),?,?,?,?
+					 )';		
+		PASSTHRU strSql to Database.orcl values (	
+							FILEID,USERID,PROGRAMTYPE,STEPNAME,INFOTYPE,DETAIL
+									);
+END;
+
 
 CREATE COMPUTE MODULE ReadXmlSwatchCommon_ComputeLine
 	CREATE FUNCTION Main() RETURNS BOOLEAN
 	BEGIN
 		-- CALL CopyMessageHeaders();
 		-- CALL CopyEntireMessage();
+		--开始日志记录  
+		DECLARE userSql CHARACTER;
+		DECLARE userRow ROW;
+		DECLARE userData CHARACTER;
+		DECLARE fileID CHARACTER;
+		SET userSql = 'select userid,fileid from t_filepreview where UPLOADNAME=?';
+		SET userRow.row[] = passthru(userSql to Database.orcl values(InputLocalEnvironment.File.Name));
+		SET userData= userRow.row[1].USERID;
+		SET fileID = userRow.row[1].FILEID;
+		CALL InsertLogDataProcess('预处理开始',fileID,userData,2,'预览开始','INFO');
 		
 		SET XmlLineNumCommon = CARDINALITY(InputRoot.XMLNSC.root.rowset.row[]);	
 		DECLARE I INTEGER 1;
@@ -46,7 +75,7 @@ CREATE COMPUTE MODULE ReadXmlSwatchCommon_ComputeLine
 		set updateSql = 'UPDATE   t_filepreview SET  xml_target = ? WHERE  UPLOADNAME = ?';
 		passthru updateSql to Database.orcl values(XmlXMLSwatchCommon ,
 				InputLocalEnvironment.File.Name );		
-
+		CALL InsertLogDataProcess('预处理结束',fileID,userData,2,'预览结束','INFO');
 		RETURN TRUE;
 		
 	END;
