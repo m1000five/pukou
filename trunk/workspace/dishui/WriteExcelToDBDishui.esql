@@ -13,6 +13,11 @@ DECLARE IsCheckDateDishui SHARED BOOLEAN;
 
 DECLARE ExcelLogResult SHARED CHARACTER;
 
+--日志记录
+DECLARE ExcelMessageID SHARED CHARACTER;
+DECLARE ExcelallCount SHARED INTEGER 0;
+DECLARE Excelsharedvalue SHARED INTEGER 10;
+
 CREATE COMPUTE MODULE WriteExcelToDBDishui_GetFileInfo
 
 	CREATE PROCEDURE ResetSharedValue() BEGIN
@@ -23,6 +28,11 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_GetFileInfo
 		SET ExcelFormatErrorDishui=0;
 		SET ExcelCorrectNumDishui=0;
 		SET ExcelLineNumDishui=0;
+		SET ExcelMessageID =NULL;
+		SET ExcelallCount=0;
+		SET DataLineNumDishui = 0;
+		SET OrignFileName=NULL;
+		
 	END;
 
 
@@ -33,7 +43,15 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_GetFileInfo
 		
 		SET j = 1111;
 		SET j = 222;	
-	
+		--日志处理
+		DECLARE userSql CHARACTER;
+		DECLARE userRow ROW;
+		SET userSql = 'select userid,fileid,sourcename from t_filepreview where UPLOADNAME=?';
+		SET userRow.row[] = passthru(userSql to Database.orcl values(InputLocalEnvironment.File.Name));
+		SET userData= userRow.row[1].USERID;
+		SET FileID = userRow.row[1].FILEID;
+		SET OrignFileName=userRow.row[1].SOURCENAME;
+		CALL InsertLogDataProcess1('Excel文件处理开始',FileID,userData,2,'Excel处理开始','INFO');
 		
 		SET OutputRoot=InputRoot;
 		-- Reset Shared Value
@@ -53,12 +71,12 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_GetFileInfo
 		IF ExcelTableName IS NULL THEN
 			DECLARE rowTableInfo ROW;
 
-			SET strSql = 'select b.tablename as tablename from t_filepreview a , t_table b
+			SET strSql = 'select b.tablename as tablename,a.messageid as messageid from t_filepreview a , t_meta_table b
 						where a.messageid= b.messageid
 						and a.uploadname = ?';
 
 			SET rowTableInfo.row[] = passthru(strSql to Database.orcl
-			values(InputLocalEnvironment.File.Name ));
+				values(InputLocalEnvironment.File.Name ));
 
 			DECLARE tableRowNum INTEGER;
 			SET tableRowNum = CARDINALITY(rowTableInfo.row[]);
@@ -67,6 +85,7 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_GetFileInfo
 			end if;
 
 			SET ExcelTableName = rowTableInfo.row[1].TABLENAME;
+			SET ExcelMessageID = rowTableInfo.row[1].MESSAGEID; 
 		end if ;
 		SET OutputLocalEnvironment.Variables.ExcelTabName = ExcelTableName;		
 		-- 查找配置
@@ -75,7 +94,7 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_GetFileInfo
 			DECLARE I INTEGER;
 			DECLARE J INTEGER;
 			SET strSql = 'select b.columnname, a.sourceorderid
-						from t_datasource a, t_column b, t_table c
+						from t_meta_columnmapping a, t_meta_column b, t_meta_table c
 						where a.messageid = b.messageid
 						and a.columnid = b.columnid
 						and b.messageid = c.messageid
@@ -100,7 +119,7 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcel
 		-- CALL CopyEntireMessage();
 
 		SET ExcelLogResult = '开始时间：' || CAST(CURRENT_TIMESTAMP AS CHARACTER) ;
-
+		SET ExcelLogResult= CAST(CURRENT_TIMESTAMP AS CHARACTER);
 		--循环获得Excel每一行记录，送到下一节点处理
 		DECLARE I INTEGER 1;
 		DECLARE J INTEGER 1;
@@ -109,20 +128,33 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcel
 		DECLARE rowNum INTEGER;
 		SET rowNum = CARDINALITY(InputRoot.XML.workbook.sheet[1].row[]);
 		
-		SET I = 1;
+		SET I = 1; 
 		
 		DECLARE tmpValue CHARACTER;
 
+		SET StartLineNum = GetStartLineNum(ExcelFileName, '1');
+		
+
 		WHILE I <= rowNum DO
-			SET J=1;
-			SET Environment.Variables.rowCol.row[0].value = ' ';
-			WHILE (J <= CARDINALITY(InputRoot.XML.workbook.sheet[1].row[I].cell[])) DO
-				SET tmpValue = InputRoot.XML.workbook.sheet[1].row[I].cell[J];
-				SET Environment.Variables.rowCol.row[J].value = tmpValue;
-				SET J=J+1;
-			END WHILE;
-			SET ExcelLineNumDishui = I;
-			PROPAGATE TO TERMINAL 'out';
+			IF I >= StartLineNum THEN
+				--数据处理中日志			
+				SET ExcelallCount = ExcelallCount+1;
+				IF ExcelallCount = Excelsharedvalue THEN
+					CALL InsertLogDataProcess1('Excel文件处理中处理到'|| CAST(ExcelLineNumDishui AS CHARACTER)||'条',FileID,userData,2,'Excel处理中','INFO');
+					SET ExcelallCount = 0;
+				END IF;
+				
+				SET J=1;
+				SET Environment.Variables.rowCol.row[0].value = ' ';
+				WHILE (J <= CARDINALITY(InputRoot.XML.workbook.sheet[1].row[I].cell[])) DO
+					SET tmpValue = InputRoot.XML.workbook.sheet[1].row[I].cell[J];
+					SET Environment.Variables.rowCol.row[J].value = tmpValue;
+					SET J=J+1;
+				END WHILE;
+				SET ExcelLineNumDishui = I;
+				SET DataLineNumDishui = DataLineNumDishui + 1;
+				PROPAGATE TO TERMINAL 'out';
+			END IF;
 			SET I=I+1;
 		END WHILE;
 
@@ -167,7 +199,7 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelLine
 		DECLARE NSRSBH CHARACTER; 
 		DECLARE HSFSDM CHARACTER;
 		DECLARE HSFSMC CHARACTER;
-		DECLARE ZY CHARACTER;
+		DECLARE ZY CHARACTER; 
 		DECLARE JY CHARACTER;
 		DECLARE DJRQ CHARACTER;
 		DECLARE DJJGDM CHARACTER;
@@ -175,17 +207,61 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelLine
 
 		DECLARE refRowCol REFERENCE TO Environment.Variables.rowCol;
 
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].ZZJGDM as INTEGER)].value), ZZJGDM);			
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].QYMC as INTEGER)].value), QYMC);			
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].QYZCH as INTEGER)].value), QYZCH);		
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].NSRSBH as INTEGER)].value), NSRSBH);
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].HSFSDM as INTEGER)].value), HSFSDM);
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].HSFSMC as INTEGER)].value), HSFSMC);
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].ZY as INTEGER)].value), ZY);
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].JY as INTEGER)].value), JY);
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].DJRQ as INTEGER)].value), DJRQ);			
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].DJJGDM as INTEGER)].value), DJJGDM);			
-		CALL NotNULL(TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].DJJGMC as INTEGER)].value), DJJGMC);	
+		IF cast(ExcelRowDataColConfig.row[1].ZZJGDM as INTEGER) <> 0 THEN
+			SET ZZJGDM = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].ZZJGDM as INTEGER)].value);			
+		ELSE
+			SET ZZJGDM = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].QYMC as INTEGER) <> 0 THEN
+			SET ZZJGDM = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].ZZJGDM as INTEGER)].value);			
+		ELSE
+			SET QYMC = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].QYZCH as INTEGER) <> 0 THEN
+			SET ZZJGDM = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].ZZJGDM as INTEGER)].value);			
+		ELSE
+			SET QYZCH = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].NSRSBH as INTEGER) <> 0 THEN
+			SET NSRSBH = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].NSRSBH as INTEGER)].value);			
+		ELSE
+			SET NSRSBH = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].HSFSDM as INTEGER) <> 0 THEN
+			SET HSFSDM = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].HSFSDM as INTEGER)].value);			
+		ELSE
+			SET HSFSDM = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].HSFSMC as INTEGER) <> 0 THEN
+			SET HSFSMC = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].HSFSMC as INTEGER)].value);			
+		ELSE
+			SET HSFSMC = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].ZY as INTEGER) <> 0 THEN
+			SET ZY = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].ZY as INTEGER)].value);			
+		ELSE
+			SET ZY = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].JY as INTEGER) <> 0 THEN
+			SET JY = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].JY as INTEGER)].value);			
+		ELSE
+			SET JY = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].DJRQ as INTEGER) <> 0 THEN
+			SET DJRQ = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].DJRQ as INTEGER)].value);			
+		ELSE
+			SET DJRQ = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].DJJGDM as INTEGER) <> 0 THEN
+			SET DJJGDM = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].DJJGDM as INTEGER)].value);			
+		ELSE
+			SET DJJGDM = ' ';
+		END IF;
+		IF cast(ExcelRowDataColConfig.row[1].DJJGMC as INTEGER) <> 0 THEN
+			SET DJJGMC = TRIM(refRowCol.row[cast(ExcelRowDataColConfig.row[1].DJJGMC as INTEGER)].value);			
+		ELSE
+			SET DJJGMC = ' ';
+		END IF;
 		
 		-- 组织机构代码、企业名称、工商注册：至少填一个
 		IF ( ZZJGDM IS NULL OR ZZJGDM = '')  AND 
@@ -195,7 +271,7 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelLine
 			Set ExcelFormatErrorDishui = ExcelFormatErrorDishui + 1;
 			CALL InsertErrData('组织机构代码、企业名称、工商注册：都为空', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName);
+								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName,'1');
 			RETURN TRUE;
 		END IF;
 		
@@ -205,7 +281,7 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelLine
 			Set ExcelFormatErrorDishui = ExcelFormatErrorDishui + 1;
 			CALL InsertErrData('纳税人识别号为空', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName);
+								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName,'1');
 			RETURN TRUE;
 		END IF;		
 		
@@ -219,7 +295,7 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelLine
 			Set ExcelFormatErrorDishui = ExcelFormatErrorDishui + 1;
 			CALL InsertErrData('登记日期格式不正确', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName);
+								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName,'1');
 			RETURN TRUE;
 		END IF;
 
@@ -231,15 +307,21 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelLine
 		IF ZZJGDM IS NULL OR ZZJGDM = '' THEN
 			SET ZZJGDM = 'NULL';
 		END IF;
-		SET md5CodeSql  = 'select count(1) c_num from t_dishui_djxx  where md5code = md5(
-						md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?))';
+		SET md5CodeSql  = 'select count(1) c_num from t_dataprocess  where md5code = md5(
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+						decode(?, '' '', '''', md5(?)))';
 		SET md5CodeData.row[] = passthru(md5CodeSql to Database.orcl 
 										values(
-										ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
-										HSFSMC, ZY, JY, DJRQ, DJJGDM, 
-										DJJGMC));  
+										ZZJGDM, ZZJGDM, QYMC, QYMC,
+										QYZCH, QYZCH, NSRSBH, NSRSBH,
+										HSFSDM, HSFSDM, HSFSMC, HSFSMC, 
+										ZY, ZY, JY, JY,
+										DJRQ, DJRQ, DJJGDM, DJJGDM, 
+										DJJGMC, DJJGMC));  
 		DECLARE b INTEGER;
 		SET b = md5CodeCount;
 		SET md5CodeCount = md5CodeData.row[1].C_NUM;
@@ -248,34 +330,63 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelLine
 		
 		-- 入库
 		DECLARE strSql CHARACTER;
+		DECLARE str_Sql_Process CHARACTER;
+		DECLARE guid_sql CHARACTER NULL;
+		DECLARE guid_row ROW;
+		DECLARE guid_data CHARACTER;
+		SET guid_sql = 'select cast(sys_guid() as varchar2(40)) as guid from dual';
+		SET guid_row.row[] = passthru(guid_sql to Database.orcl);
+		SET guid_data = guid_row.row[1].GUID;
+	--	SET guid_data = CAST(guid_row.row[1].GUID AS BLOB);
+		SET str_Sql_Process = 'INSERT INTO t_dataprocess(messageid,recid,sourcename,
+								linenum,createtime,md5code)
+								values(?,?,?,?,sysdate,md5(
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)) || decode(?, '' '', '''', md5(?)) ||
+									decode(?, '' '', '''', md5(?)))
+								)';
+		
 		SET strSql = 'INSERT INTO t_dishui_djxx (
-						recid,batchnum,sourcename,linenum,createtime,md5code,
+						recid,
 						ZZJGDM,QYMC,QYZCH,NSRSBH,HSFSDM,
 						HSFSMC,ZY,JY,DJRQ,DJJGDM, 
 						DJJGMC) 
 					 values (
-					 	sys_guid(),20090905,''' || ExcelFileName || ''','|| CAST(ExcelLineNumDishui AS CHARACTER) ||',sysdate,
-					 	md5(md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?) || md5(?) || md5(?) || md5(?) || md5(?) || 
-						md5(?)),
-						?,?,?,?,?,
-						?,?,?,?,?,
-						?
+					 	?,
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?), decode(?, '' '', null, ?),
+						decode(?, '' '', null, ?)
 					 )';		
 		IF 	md5CodeCount = 0 THEN	
 			SET ExcelCorrectNumDishui = ExcelCorrectNumDishui + 1;
-			PASSTHRU strSql to Database.orcl values (	
-													ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
-													HSFSMC, ZY, JY, DJRQ, DJJGDM, 
-													DJJGMC, 
-													ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
-													HSFSMC, ZY, JY, DJRQ, DJJGDM, 
-													DJJGMC
-												 );
+			PASSTHRU str_Sql_Process to Database.orcl values (	
+							ExcelMessageID, guid_data, FileName, CAST(ExcelLineNumDishui AS CHARACTER), 
+							ZZJGDM, ZZJGDM, QYMC, QYMC,
+							QYZCH, QYZCH, NSRSBH, NSRSBH,
+							HSFSDM, HSFSDM, HSFSMC, HSFSMC, 
+							ZY, ZY, JY, JY,
+							DJRQ, DJRQ, DJJGDM, DJJGDM, 
+							DJJGMC, DJJGMC
+						 );
+			PASSTHRU strSql to Database.orcl values (guid_data, 
+							ZZJGDM, ZZJGDM, QYMC, QYMC,
+							QYZCH, QYZCH, NSRSBH, NSRSBH,
+							HSFSDM, HSFSDM, HSFSMC, HSFSMC, 
+							ZY, ZY, JY, JY,
+							DJRQ, DJRQ, DJJGDM, DJJGDM, 
+							DJJGMC, DJJGMC				
+							);
+							
 		ELSE 
 			CALL InsertErrData('相同数据已存在！', ZZJGDM, QYMC, QYZCH, NSRSBH, 
 								HSFSDM, HSFSMC, ZY, JY, DJRQ, 
-								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName);
+								DJJGDM, DJJGMC, ' ', ExcelLineNumDishui, ExcelFileName,'0');
 			SET ExcelExistsNumDishui = ExcelExistsNumDishui + 1;
 		END IF;		 	
 		RETURN TRUE;
@@ -344,11 +455,16 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelEOF
 		DECLARE i INTEGER 1;	
 
 		-- 取得增量数据
-		SET strSqlXML = 'select * from t_dishui_djxx where filecode is null '; 
+		SET strSqlXML = 'select  a.* from t_dishui_djxx a ,t_dataprocess b, t_filepreview c
+						where a.recid= b.recid 
+						and b.messageid = c.messageid
+						and c.uploadname =?
+						and b.fileid is null 
+						'; 
 		IF dataNum = 0 then
 			throw user exception message 2951 values('从' || ExcelTableName || '表中没有查询出对应的详细信息！'); -- 这种情况基本上不会发生
 		END IF;		
-		SET rowData.row[] = passthru(strSqlXML to Database.orcl);		
+		SET rowData.row[] = passthru(strSqlXML to Database.orcl values(ExcelFileName));		
 		SET dataNum = CARDINALITY(rowData.row[]);		
 
 		IF dataNum <> 0 THEN
@@ -374,28 +490,39 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_DJXXExcelEOF
 				SET OutputRoot.XMLNSC.root.rowset.row[i].DJJGMC = source1.DJJGMC;
 				SET i = i+1;
 			END FOR;
-			SET OutputLocalEnvironment.Destination.File.Name = substring(ExcelFileName BEFORE '.') || '.xml';
+			SET OutputLocalEnvironment.Destination.File.Name = substring(ExcelFileName BEFORE '.') || '$T_DISHUI_DJXX'  || '.xml';
 			-- TO fileOutput
 			PROPAGATE TO TERMINAL 'out1';
 		END IF;		
 
 		-- 更新标志位	
 		DECLARE strSql CHARACTER;
-		SET strSql = 'update t_dishui_djxx set filecode = ''' || substring(ExcelFileName BEFORE '.') || '.xml' || ''' where filecode is null';
+		SET strSql = 'update t_dataprocess set fileid = ''' || substring(ExcelFileName BEFORE '.')   || '.xml' || ''' where fileid is null';
 		passthru strSql to Database.orcl;
 		
 		-- 记日志
-		SET strSql = 'insert into t_data_log (
-				FILE_NAME, FILE_PATH, OPT_TIME, INFO_LEVEL, DATA_NUM, INSERT_NUM, 
-				EXISTS_NUM, F_ERROR_NUM, CHANGE_NUM, FLAG, ERROR_MESSAGE)
-				values
-				(trim(?), trim(?), sysdate, trim(?), trim(?), trim(?), 
-				 trim(?), trim(?), trim(?), trim(?), trim(?))';
-	    SET ExcelLogResult = ExcelLogResult || ' 结束时间：' || CAST(CURRENT_TIMESTAMP AS CHARACTER);
-	    passthru strSql to Database.orcl values 
-	    		(ExcelFileName, ' ', 'INFO', ExcelLineNumDishui, ExcelCorrectNumDishui,
-	    		 ExcelExistsNumDishui, ExcelFormatErrorDishui, dataNum, '2', ExcelLogResult);		
+--		SET strSql = 'insert into t_data_log (
+--				FILE_NAME, FILE_PATH, OPT_TIME, INFO_LEVEL, DATA_NUM, INSERT_NUM, 
+--				EXISTS_NUM, F_ERROR_NUM, CHANGE_NUM, FLAG, ERROR_MESSAGE)
+--				values
+--				(trim(?), trim(?), sysdate, trim(?), trim(?), trim(?), 
+--				 trim(?), trim(?), trim(?), trim(?), trim(?))';
+--	    SET ExcelLogResult = ExcelLogResult || ' 结束时间：' || CAST(CURRENT_TIMESTAMP AS CHARACTER);
+--	    passthru strSql to Database.orcl values 
+--	    		(ExcelFileName, ' ', 'INFO', ExcelLineNumDishui, ExcelCorrectNumDishui,
+--	    		 ExcelExistsNumDishui, ExcelFormatErrorDishui, dataNum, '2', ExcelLogResult);	
 
+		--记录新日志信息
+		
+SET strSql='insert into T_PROCESSREPORT_FRONT(PROCESSID,BEGINTIME,ENDTIME,MESSAGEID,DATASOURCE,
+						TOTALCOUNT,INCREASECOUNT,INCCHKERRCOUNT,FMTCHKERRCOUNT,CREATETIME,USERID,PROCESSSTATUS,INCREASERATE)
+				 	 values(?,?,?,?,?,?,?,?,?,sysdate,?,''1'',round(?/?,2))';
+		 passthru strSql to Database.orcl values 
+	    		(substring(ExcelFileName BEFORE '.'),ExcelLogResult, CURRENT_TIMESTAMP, ExcelMessageID,ExcelFileName, DataLineNumDishui, ExcelCorrectNumDishui,
+	    		 ExcelExistsNumDishui, ExcelFormatErrorDishui,userData,ExcelCorrectNumDishui,DataLineNumDishui);
+	    		 	
+		--插入日志
+		CALL InsertLogDataProcess1('Excel文件处理结束',FileID,userData,2,'Excel处理结束','INFO');
 		RETURN TRUE;
 	END;
 
@@ -419,6 +546,35 @@ CREATE COMPUTE MODULE WriteExcelToDBDishui_Compute
 	BEGIN
 		-- CALL CopyMessageHeaders();
 		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE WriteExcelToDBDishui_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		
+		DECLARE t INTEGER;
+		
+		set t = 1111;
+		
 		RETURN TRUE;
 	END;
 

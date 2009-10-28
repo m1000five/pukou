@@ -7,15 +7,7 @@ CREATE COMPUTE MODULE JSXYXmlToData_Compute
 	CREATE FUNCTION Main() RETURNS BOOLEAN
 	BEGIN
 		-- CALL CopyMessageHeaders();
-		-- CALL CopyEntireMessage();
-		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
-		SET OutputLocalEnvironment.Variables.TYPE = '信息';
-		SET OutputLocalEnvironment.Variables.PROCESS = 'DAT1表数据装载';
-		SET OutputLocalEnvironment.Variables.FILE = 'd:\xml\1.xml';
-		SET OutputLocalEnvironment.Variables.AUDIT = '总共记录数目:';
-		SET OutputLocalEnvironment.Variables.NOTES = '开始插入数据库';		
-
-		PROPAGATE TO TERMINAL 'out1';				
+		-- CALL CopyEntireMessage();	
 
 		DECLARE i Integer 1;
 		DECLARE insertSql CHARACTER;		
@@ -43,20 +35,13 @@ CREATE COMPUTE MODULE JSXYXmlToData_Compute
 		DECLARE count INTEGER 0;	
 		DECLARE table_sql CHARACTER;
 		
-		DECLARE table_name CHARACTER;				
+	--	DECLARE table_name CHARACTER;				
 
 		DECLARE table_data ROW;	
-		--从数据库中取出表名			
-		-- SET table_sql='select * from t_table where messageid = (select messageid from t_filepreview where fileid=?)';
-		--
-		-- SET table_data.row[] = passthru(table_sql to Database.orcl values(SUBSTRING(InputLocalEnvironment.File.Name BEFORE '.')));
-		--
-		-- SET table_name = table_data.row[1].TABLENAME;
-		SET table_name='T_DISHUI_DJXX';
 
 		SET recordCount = CARDINALITY(InputRoot.XMLNSC.root.rowset.row[]);		
 
-		IF table_name = 'T_DISHUI_DJXX' THEN
+	--	IF table_name = 'T_DISHUI_DJXX' THEN
 		--	WHILE i <=recordCount DO				
 			FOR source1 AS InputRoot.XMLNSC.root.rowset.row[] DO
 				SET RECID = TRIM(source1.RECID);
@@ -87,9 +72,9 @@ CREATE COMPUTE MODULE JSXYXmlToData_Compute
 				IF count <> 0 THEN
 					SET ExistsCount = ExistsCount + 1;
 					--重复数据入疑问数据库表 t_dishui_djxx_err
-					CALL InsertErrData('数据重复',BATCHNUM,SOURCENAME,ZZJGDM,
+					CALL InsertErrData('数据重复',ZZJGDM,
 										A1,A2,A3,A4,A5,A6,A7,
-										A8,A9,A10,' ',CAST(LINENUM AS INTEGER));
+										A8,A9,A10,' ',CAST(LINENUM AS INTEGER),SOURCENAME,0);
 				END IF;			
 			
 			
@@ -108,15 +93,15 @@ CREATE COMPUTE MODULE JSXYXmlToData_Compute
 						SET FailedRecord = FailedRecord + 1;
 						--格式错误入疑问数据库表
 						-- INSERT Err Data
-						CALL InsertErrData('组织机构代码错误',BATCHNUM,SOURCENAME,ZZJGDM,
+						CALL InsertErrData('组织机构代码错误',ZZJGDM,
 										A1,A2,A3,A4,A5,A6,A7,
-										A8,A9,A10,' ',CAST(LINENUM AS INTEGER));				
+										A8,A9,A10,' ',CAST(LINENUM AS INTEGER),SOURCENAME,1);				
 					ELSEIF IsDate(A8)=FALSE THEN
 						SET FailedRecord = FailedRecord + 1;
 						--日期错误入疑问数据库表
-						CALL InsertErrData('登记日期格式不正确',BATCHNUM,SOURCENAME,ZZJGDM,
+						CALL InsertErrData('登记日期格式不正确',ZZJGDM,
 										A1,A2,A3,A4,A5,A6,A7,
-										A8,A9,A10,' ',CAST(LINENUM AS INTEGER));
+										A8,A9,A10,' ',CAST(LINENUM AS INTEGER),SOURCENAME,1);
 					END IF;
 				END IF;
 				
@@ -128,41 +113,8 @@ CREATE COMPUTE MODULE JSXYXmlToData_Compute
 
 				SET i = i+1;
 		--	END WHILE;
-	END FOR;
-		END IF;		
-
-		IF table_name = 'T_DISHUI_ZXXX' THEN
-			WHILE i <=recordCount DO
-				SET RECID = InputRoot.XMLNSC.root.rowset.row[i].RECID;
-				SET BATCHNUM = InputRoot.XMLNSC.root.rowset.row[i].BATCHNUM;
-				SET FILECODE = InputRoot.XMLNSC.root.rowset.row[i].FILECODE;
-				SET SOURCENAME = InputRoot.XMLNSC.root.rowset.row[i].SOURCENAME;
-				SET LINENUM = InputRoot.XMLNSC.root.rowset.row[i].LINENUM;
-				SET CREATETIME = InputRoot.XMLNSC.root.rowset.row[i].CREATETIME ;
-				SET MD5CODE = InputRoot.XMLNSC.root.rowset.row[i].MD5CODE;
-				SET ZZJGDM = InputRoot.XMLNSC.root.rowset.row[i].ZZJGDM;
-				SET A1 = OutputRoot.XMLNSC.root.rowset.row[i].QYMC;
-				SET A2 = OutputRoot.XMLNSC.root.rowset.row[i].QYZCH;
-				SET A3 = OutputRoot.XMLNSC.root.rowset.row[i].NSRSBH;
-				SET A4 = OutputRoot.XMLNSC.root.rowset.row[i].ZXLXDM;
-				SET A5 = OutputRoot.XMLNSC.root.rowset.row[i].ZXLXMC;
-				SET A6 = OutputRoot.XMLNSC.root.rowset.row[i].ZXYYDM;
-				SET A7 = OutputRoot.XMLNSC.root.rowset.row[i].ZXYYMC;
-				SET A8 = OutputRoot.XMLNSC.root.rowset.row[i].ZXRQ;
-				SET A9 = OutputRoot.XMLNSC.root.rowset.row[i].ZXJGDM;
-				--将数据插入数据库
-				SET sql ='select count(1) num from t_dishui_zxxx_tmp where recid=?';
-				SET data_row.row[]= passthru(sql to Database.orcl values(RECID));
-				SET count = data_row.row[1].NUM;
-				IF count=0 THEN
-					insert into Database.t_dishui_zxxx_tmp(RECID,BATCHNUM,FILECODE,SOURCENAME,LINENUM,CREATETIME,MD5CODE,ZZJGDM,QYMC,QYZCH,NSRSBH,ZXLXDM,ZXLXMC,ZXYYDM,ZXYYMC,ZXRQ,ZXJGDM)
-						values(RECID,BATCHNUM,FILECODE,SOURCENAME,LINENUM,CREATETIME,MD5CODE,ZZJGDM,A1,A2,A3,A4,A5,A6,A7,A8,A9);
-				END IF;
-				SET i = i+1;			
-
-			END WHILE;
-		END IF;		
-
+		END FOR;
+--	END IF;		
 		RETURN TRUE;
 	END;	
 	
@@ -345,8 +297,6 @@ CREATE PROCEDURE IsNum(IN P1 CHARACTER)
  
  
  CREATE PROCEDURE InsertErrData( IN reason CHARACTER, 
- 								IN BATCHNUM CHARACTER,
- 								IN SOURCENAME CHARACTER,
 								IN ZZJGDM CHARACTER,
 								IN QYMC CHARACTER,
 								IN QYZCH CHARACTER, 
@@ -359,11 +309,13 @@ CREATE PROCEDURE IsNum(IN P1 CHARACTER)
 								IN DJJGDM CHARACTER,
 								IN DJJGMC CHARACTER,
 								IN ALLDATA CHARACTER,
-								IN lineNum INTEGER ) BEGIN
+								IN lineNum INTEGER,
+								IN fileName CHARACTER,
+								IN errorType CHARACTER ) BEGIN
 									
 		DECLARE strSql CHARACTER;
 		SET strSql = 'INSERT INTO t_dishui_djxx_err (
-						BATCHNUM,SOURCENAME,LINENUM,ALLDATA,ERRORREASON,
+						SOURCENAME,LINENUM,ERRORTYPE,ERRORREASON,ALLDATA,
 						ZZJGDM,QYMC,QYZCH,NSRSBH,HSFSDM,
 						HSFSMC,ZY,JY,DJRQ,DJJGDM, 
 						DJJGMC) 
@@ -374,7 +326,7 @@ CREATE PROCEDURE IsNum(IN P1 CHARACTER)
 						?
 					 )';		
 		PASSTHRU strSql to Database.orcl values (	
-									BATCHNUM,SOURCENAME,lineNum,ALLDATA,reason,												
+									fileName,lineNum,errorType,reason,ALLDATA,												
 									ZZJGDM, QYMC, QYZCH, NSRSBH, HSFSDM, 
 									HSFSMC, ZY, JY, DJRQ, DJJGDM, 
 									DJJGMC
@@ -382,3 +334,114 @@ CREATE PROCEDURE IsNum(IN P1 CHARACTER)
 END;
 
 
+CREATE COMPUTE MODULE JSXYXmlToData_ZXXXLine
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE JSXYXmlToData_GetFileInfo
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL CopyMessageHeaders();
+		CALL CopyEntireMessage();
+		
+--		SET OutputLocalEnvironment.Variables.TIME = CURRENT_TIMESTAMP;
+--		SET OutputLocalEnvironment.Variables.TYPE = '信息';
+--		SET OutputLocalEnvironment.Variables.PROCESS = '地税表数据装载';
+--		SET OutputLocalEnvironment.Variables.FILE = 'd:\xml\*.xml';
+--		SET OutputLocalEnvironment.Variables.AUDIT = '总共记录数目记数开始.';
+--		SET OutputLocalEnvironment.Variables.NOTES = '开始插入数据库.';
+--		PROPAGATE TO TERMINAL 'out1';
+		
+		--获取表名
+		DECLARE FileName CHARACTER;
+		SET FileName = InputLocalEnvironment.File.Name;
+		SET FileName = substring(FileName BEFORE '.');
+		--SET TableName = SUBSTRING(FileName AFTER '||');
+		SET OutputLocalEnvironment.Variables.TabName = SUBSTRING(FileName AFTER '$');
+	--	PROPAGATE TO TERMINAL 'out';
+
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE JSXYXmlToData_FileEnd
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE JSXYXmlToData_Exception
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

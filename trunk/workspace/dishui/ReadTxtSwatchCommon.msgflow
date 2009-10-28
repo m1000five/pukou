@@ -11,14 +11,18 @@
       <nodes xmi:type="ComIbmFileInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="60,106" inputDirectory="d:\iistemp\dishui\upload" filenamePattern="*.txt" processedFileAction="moveToArchive" replaceDuplicateArchives="true" messageDomainProperty="BLOB" recordDetection="delimited">
         <translation xmi:type="utility:ConstantString" string="FileInput"/>
       </nodes>
-      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="200,62" dataSource="orcl" computeExpression="esql://routine/#ReadTxtSwatchCommon_ComputeLine.Main">
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="235,60" dataSource="orcl" computeExpression="esql://routine/#ReadTxtSwatchCommon_ComputeLine.Main">
         <translation xmi:type="utility:ConstantString" string="ComputeLine"/>
       </nodes>
-      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="201,181" dataSource="orcl" computeExpression="esql://routine/#ReadTxtSwatchCommon_ComputeEOF.Main">
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="226,148" dataSource="orcl" computeExpression="esql://routine/#ReadTxtSwatchCommon_ComputeEOF.Main">
         <translation xmi:type="utility:ConstantString" string="ComputeEOF"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="217,228" computeExpression="esql://routine/#ReadTxtSwatchCommon_Compute.Main">
+        <translation xmi:type="utility:ConstantString" string="Compute"/>
       </nodes>
       <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
       <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.EOD" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.in"/>
     </composition>
     <propertyOrganizer/>
   </eClassifiers>

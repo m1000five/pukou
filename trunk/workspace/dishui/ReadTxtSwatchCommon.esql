@@ -3,15 +3,82 @@ DECLARE SwatchLineCount SHARED INTEGER 10;
 DECLARE XMLSwatchCommon SHARED CHARACTER ;
 DECLARE StandSplitter SHARED CHARACTER '||';
 
+--日志记录
+DECLARE userData SHARED CHARACTER;
+DECLARE FileID SHARED CHARACTER;
+ 
+DECLARE StartLineNum SHARED INTEGER 1 ;
+
+CREATE FUNCTION GetStartLineNum(IN uploadName CHARACTER, IN fileType CHARACTER) RETURNS INTEGER
+BEGIN
+	DECLARE strSql CHARACTER;
+	DECLARE userRow ROW;
+	DECLARE tmp CHARACTER;
+	SET strSql = 'select a.param1 as param1
+		  from t_meta_dataconfig a, t_filepreview b
+		 where a.messageid = b.messageid
+		   and b.uploadname = ?
+		   and a.sourcetype=?';
+	SET userRow.row[] = passthru(strSql to Database.orcl values(uploadName, fileType ));
+	IF CARDINALITY(userRow.row[]) = 0 THEN
+		RETURN 0;
+	END IF;
+	SET tmp = userRow.row[1].PARAM1;
+	RETURN CAST(tmp AS INTEGER );
+END; 
+
+CREATE PROCEDURE InsertLogDataProcess1( IN DETAIL CHARACTER, 
+								IN FILEID CHARACTER,
+								IN USERID CHARACTER,
+								IN PROGRAMTYPE INTEGER, 
+								IN STEPNAME CHARACTER,
+								IN INFOTYPE CHARACTER
+								) BEGIN
+									
+		DECLARE strSql CHARACTER;
+		SET strSql = 'INSERT INTO t_log_dataprocess (
+						FILEID,USERID,OPERATETIME,PROGRAMTYPE,STEPNAME,INFOTYPE,DETAIL) 
+					 values (
+					 	?,?,to_char(systimestamp,''yyyy-mm-dd HH24:MI:SSXff''),?,?,?,?
+					 )';		
+		PASSTHRU strSql to Database.orcl values (	
+							FILEID,USERID,PROGRAMTYPE,STEPNAME,INFOTYPE,DETAIL
+									);
+END;
+
 CREATE COMPUTE MODULE ReadTxtSwatchCommon_ComputeLine
 	CREATE FUNCTION Main() RETURNS BOOLEAN
 	BEGIN
 		-- CALL CopyMessageHeaders();
 		-- CALL CopyEntireMessage();
 		
+		IF LineNumCommon = 0 THEN
+			SET XMLSwatchCommon = '<ROOT>';
+		END IF;
+
 		-- 记录数统计
 		SET LineNumCommon = LineNumCommon + 1;
-		 
+
+		IF LineNumCommon = 1 THEN 
+			DECLARE userSql CHARACTER;
+			DECLARE userRow ROW;
+			SET userSql = 'select userid,fileid from t_filepreview where UPLOADNAME=?';
+			SET userRow.row[] = passthru(userSql to Database.orcl values(InputLocalEnvironment.File.Name));
+			SET userData= userRow.row[1].USERID;
+			SET FileID = userRow.row[1].FILEID;
+			CALL InsertLogDataProcess1('TXT预处理开始',FileID,userData,2,'预览开始','INFO');
+		END IF;
+		
+		IF InputLocalEnvironment.File.Record = 1 THEN 
+			SET StartLineNum = GetStartLineNum(InputLocalEnvironment.File.Name, '0');
+		END IF;
+
+		-- 小于设定行则不处理
+		IF LineNumCommon < StartLineNum THEN
+			RETURN FALSE;
+		END IF;
+		
+		
 		-- 是否已经取完
 		IF LineNumCommon > SwatchLineCount THEN
 			RETURN FALSE;
@@ -23,9 +90,10 @@ CREATE COMPUTE MODULE ReadTxtSwatchCommon_ComputeLine
 		--得到读取得一条记录,第一个字段
 		SET str = CAST(InputRoot.BLOB.BLOB as CHARACTER CCSID 1386);
 		
-		IF LineNumCommon = 0 THEN
-			SET XMLSwatchCommon = '<ROOT>';
-		END IF;
+		
+		SET str = REPLACE(str, '&', '&amp;');
+		SET str = REPLACE(str, '>', '&gt;');
+		SET str = REPLACE(str, '<', '&lt;');		
 		
 		-- 判定是否包含规定的定界符号,如果含有||，则为此次为地税标准数据
 		-- 否则为非标准数据
@@ -107,7 +175,31 @@ CREATE COMPUTE MODULE ReadTxtSwatchCommon_ComputeEOF
 		-- reset share var
 		SET LineNumCommon = 0;
 		SET XMLSwatchCommon = '';
-						
+		CALL InsertLogDataProcess1('TXT预处理结束',FileID,userData,2,'预览结束','INFO');
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE ReadTxtSwatchCommon_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
 		RETURN TRUE;
 	END;
 

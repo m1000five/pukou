@@ -17,7 +17,7 @@
       <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="379,89" dataSource="orcl" computeExpression="esql://routine/#ReadExcelSwatchCommon_ComputeLine.Main">
         <translation xmi:type="utility:ConstantString" string="ComputeLine"/>
       </nodes>
-      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="222,208" computeExpression="esql://routine/#ReadExcelSwatchCommon_ComputeEOF.Main">
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="222,208" dataSource="orcl" computeExpression="esql://routine/#ReadExcelSwatchCommon_ComputeEOF.Main">
         <translation xmi:type="utility:ConstantString" string="ComputeEOF"/>
       </nodes>
       <nodes xmi:type="ComIbmTrace.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="382,177">
